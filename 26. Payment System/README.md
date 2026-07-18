@@ -333,7 +333,7 @@ Other talking points:
 ---
 
 <div align="center">
-<a href="../25. Real-time Gaming Leaderboard/README.md">&lt;&lt; Previous Page</a> | <a href="../27.  Digital Wallet/README.md">Next Page &gt;&gt;</a>
+<a href="../25. Real-time Gaming Leaderboard/Readme.md">&lt;&lt; Previous Page</a> | <a href="../27.  Digital Wallet/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

@@ -101,7 +101,7 @@ This chapter addresses the challenge of designing a **unique ID generator** for 
 ---
 
 <div align="center">
-<a href="../06. Key-Value Store/README.md">&lt;&lt; Previous Page</a> | <a href="../08. URL Shortener/README.md">Next Page &gt;&gt;</a>
+<a href="../06. Key-Value Store/Readme.md">&lt;&lt; Previous Page</a> | <a href="../08. URL Shortener/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

@@ -143,7 +143,7 @@ If seen before discard it, otherwise send out the notification.
 ---
 
 <div align="center">
-<a href="../09. Web Crawler/README.md">&lt;&lt; Previous Page</a> | <a href="../11. News Feed System/README.md">Next Page &gt;&gt;</a>
+<a href="../09. Web Crawler/Readme.md">&lt;&lt; Previous Page</a> | <a href="../11. News Feed System/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

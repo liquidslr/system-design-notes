@@ -426,7 +426,7 @@ Here's our final design:
 ---
 
 <div align="center">
-<a href="../19. Distributed Message Queue/README.md">&lt;&lt; Previous Page</a> | <a href="../21. Ad Click Event Aggregation/README.md">Next Page &gt;&gt;</a>
+<a href="../19. Distributed Message Queue/Readme.md">&lt;&lt; Previous Page</a> | <a href="../21. Ad Click Event Aggregation/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

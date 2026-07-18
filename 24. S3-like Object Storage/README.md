@@ -449,7 +449,7 @@ Things we covered:
 ---
 
 <div align="center">
-<a href="../23. Distributed Email Service/README.md">&lt;&lt; Previous Page</a> | <a href="../25. Real-time Gaming Leaderboard/README.md">Next Page &gt;&gt;</a>
+<a href="../23. Distributed Email Service/Readme.md">&lt;&lt; Previous Page</a> | <a href="../25. Real-time Gaming Leaderboard/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

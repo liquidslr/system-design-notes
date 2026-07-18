@@ -452,7 +452,7 @@ Other things to discuss if time permits:
 ---
 
 <div align="center">
-<a href="../24. S3-like Object Storage/README.md">&lt;&lt; Previous Page</a> | <a href="../26. Payment System/README.md">Next Page &gt;&gt;</a>
+<a href="../24. S3-like Object Storage/Readme.md">&lt;&lt; Previous Page</a> | <a href="../26. Payment System/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

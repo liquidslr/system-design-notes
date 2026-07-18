@@ -153,7 +153,7 @@ A good web crawler must address:
 ---
 
 <div align="center">
-<a href="../08. URL Shortener/README.md">&lt;&lt; Previous Page</a> | <a href="../10. Notification System/README.md">Next Page &gt;&gt;</a>
+<a href="../08. URL Shortener/Readme.md">&lt;&lt; Previous Page</a> | <a href="../10. Notification System/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

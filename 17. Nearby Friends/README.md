@@ -231,7 +231,7 @@ We also explored how to scale restful api servers, websocket servers, data layer
 ---
 
 <div align="center">
-<a href="../16. Proximity Service/README.md">&lt;&lt; Previous Page</a> | <a href="../18. Google Maps/README.md">Next Page &gt;&gt;</a>
+<a href="../16. Proximity Service/Readme.md">&lt;&lt; Previous Page</a> | <a href="../18. Google Maps/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

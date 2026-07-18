@@ -133,7 +133,7 @@ could cause more requests than allowed quota to go through.
 ---
 
 <div align="center">
-<a href="../03. System Design Framework/README.md">&lt;&lt; Previous Page</a> | <a href="../05. Consistent Hashing/README.md">Next Page &gt;&gt;</a>
+<a href="../03. System Design Framework/Readme.md">&lt;&lt; Previous Page</a> | <a href="../05. Consistent Hashing/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

@@ -231,7 +231,7 @@ downloads blocks to construct the file.
 ---
 
 <div align="center">
-<a href="../14. Youtube/README.md">&lt;&lt; Previous Page</a> | <a href="../16. Proximity Service/README.md">Next Page &gt;&gt;</a>
+<a href="../14. Youtube/Readme.md">&lt;&lt; Previous Page</a> | <a href="../16. Proximity Service/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

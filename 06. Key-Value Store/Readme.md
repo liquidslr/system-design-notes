@@ -262,7 +262,7 @@ value).
 ---
 
 <div align="center">
-<a href="../05. Consistent Hashing/README.md">&lt;&lt; Previous Page</a> | <a href="../07. Unique-Id Generator/README.md">Next Page &gt;&gt;</a>
+<a href="../05. Consistent Hashing/Readme.md">&lt;&lt; Previous Page</a> | <a href="../07. Unique-Id Generator/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

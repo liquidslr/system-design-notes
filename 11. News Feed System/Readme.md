@@ -133,7 +133,7 @@ The cache is divided into five layers:
 ---
 
 <div align="center">
-<a href="../10. Notification System/README.md">&lt;&lt; Previous Page</a> | <a href="../12. Chat System/README.md">Next Page &gt;&gt;</a>
+<a href="../10. Notification System/Readme.md">&lt;&lt; Previous Page</a> | <a href="../12. Chat System/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

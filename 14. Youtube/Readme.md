@@ -226,7 +226,7 @@ contains 3 queues and a task scheduler.
 ---
 
 <div align="center">
-<a href="../13. Search Autocomplete/README.md">&lt;&lt; Previous Page</a> | <a href="../15. Google Drive/README.md">Next Page &gt;&gt;</a>
+<a href="../13. Search Autocomplete/Readme.md">&lt;&lt; Previous Page</a> | <a href="../15. Google Drive/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

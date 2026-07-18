@@ -445,7 +445,7 @@ One additional feature we could provide is multi-stop navigation which can be so
 ---
 
 <div align="center">
-<a href="../17. Nearby Friends/README.md">&lt;&lt; Previous Page</a> | <a href="../19. Distributed Message Queue/README.md">Next Page &gt;&gt;</a>
+<a href="../17. Nearby Friends/Readme.md">&lt;&lt; Previous Page</a> | <a href="../19. Distributed Message Queue/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

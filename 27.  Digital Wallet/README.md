@@ -423,7 +423,7 @@ Here's the evolution of our design:
 ---
 
 <div align="center">
-<a href="../26. Payment System/README.md">&lt;&lt; Previous Page</a> | <a href="../28. Stock Exchange/README.md">Next Page &gt;&gt;</a>
+<a href="../26. Payment System/Readme.md">&lt;&lt; Previous Page</a> | <a href="../28. Stock Exchange/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

@@ -590,7 +590,7 @@ Additional talking points:
 ---
 
 <div align="center">
-<a href="../18. Google Maps/README.md">&lt;&lt; Previous Page</a> | <a href="../20. Metrics Monitoring and Alerting System/README.md">Next Page &gt;&gt;</a>
+<a href="../18. Google Maps/Readme.md">&lt;&lt; Previous Page</a> | <a href="../20. Metrics Monitoring and Alerting System/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

@@ -315,7 +315,7 @@ This method ensures **low-latency, scalable** retrieval of businesses near a use
 ---
 
 <div align="center">
-<a href="../15. Google Drive/README.md">&lt;&lt; Previous Page</a> | <a href="../17. Nearby Friends/README.md">Next Page &gt;&gt;</a>
+<a href="../15. Google Drive/Readme.md">&lt;&lt; Previous Page</a> | <a href="../17. Nearby Friends/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

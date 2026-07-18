@@ -99,7 +99,7 @@ Avoid ambiguity by labeling units (e.g., `5 MB` instead of `5`).
 ---
 
 <div align="center">
-<a href="../01. Scaling/README.md">&lt;&lt; Previous Page</a> | <a href="../03. System Design Framework/README.md">Next Page &gt;&gt;</a>
+<a href="../01. Scaling/Readme.md">&lt;&lt; Previous Page</a> | <a href="../03. System Design Framework/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

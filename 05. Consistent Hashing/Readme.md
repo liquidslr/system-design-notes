@@ -100,7 +100,7 @@ When servers are added or removed:
 ---
 
 <div align="center">
-<a href="../04. Rate Limiter/README.md">&lt;&lt; Previous Page</a> | <a href="../06. Key-Value Store/README.md">Next Page &gt;&gt;</a>
+<a href="../04. Rate Limiter/Readme.md">&lt;&lt; Previous Page</a> | <a href="../06. Key-Value Store/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

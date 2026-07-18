@@ -327,7 +327,7 @@ Additional talking points:
 ---
 
 <div align="center">
-<a href="../22. Hotel Reservation System/README.md">&lt;&lt; Previous Page</a> | <a href="../24. S3-like Object Storage/README.md">Next Page &gt;&gt;</a>
+<a href="../22. Hotel Reservation System/Readme.md">&lt;&lt; Previous Page</a> | <a href="../24. S3-like Object Storage/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---

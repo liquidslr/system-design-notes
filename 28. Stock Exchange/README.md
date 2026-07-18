@@ -611,7 +611,7 @@ Other interesting notes:
 ---
 
 <div align="center">
-<a href="../27.  Digital Wallet/README.md">&lt;&lt; Previous Page</a>
+<a href="../27.  Digital Wallet/Readme.md">&lt;&lt; Previous Page</a>
 </div>
 
 ---

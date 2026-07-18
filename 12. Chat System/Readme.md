@@ -205,7 +205,7 @@ as news messages:
 ---
 
 <div align="center">
-<a href="../11. News Feed System/README.md">&lt;&lt; Previous Page</a> | <a href="../13. Search Autocomplete/README.md">Next Page &gt;&gt;</a>
+<a href="../11. News Feed System/Readme.md">&lt;&lt; Previous Page</a> | <a href="../13. Search Autocomplete/Readme.md">Next Page &gt;&gt;</a>
 </div>
 
 ---
