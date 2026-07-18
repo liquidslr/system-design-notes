@@ -98,3 +98,10 @@ This chapter addresses the challenge of designing a **unique ID generator** for 
 - ID generators are mission-critical and must be fault-tolerant.
 - Consider redundancy and failover mechanisms.
 
+---
+
+<div align="center">
+<a href="../06. Key-Value Store/README.md">&lt;&lt; Previous Page</a> | <a href="../08. URL Shortener/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

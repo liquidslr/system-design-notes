@@ -150,3 +150,10 @@ A good web crawler must address:
 - **Horizontal Scaling:** Use stateless servers to scale crawl jobs efficiently.
 - **Analytics:** Collect and analyze data for insights.
 
+---
+
+<div align="center">
+<a href="../08. URL Shortener/README.md">&lt;&lt; Previous Page</a> | <a href="../10. Notification System/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

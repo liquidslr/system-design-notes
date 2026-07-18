@@ -202,3 +202,10 @@ as news messages:
 3. **Client-Side Caching:** Reduce data transfer for better performance.
 4. **Improved Load Times:** Use geographically distributed caching networks.
 
+---
+
+<div align="center">
+<a href="../11. News Feed System/README.md">&lt;&lt; Previous Page</a> | <a href="../13. Search Autocomplete/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

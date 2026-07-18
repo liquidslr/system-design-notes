@@ -140,3 +140,10 @@ If seen before discard it, otherwise send out the notification.
 3. **Caching:** Reduce latency by caching frequently accessed data.
 4. **Distributed Crawling:** Optimize message delivery geographically for better performance.
 
+---
+
+<div align="center">
+<a href="../09. Web Crawler/README.md">&lt;&lt; Previous Page</a> | <a href="../11. News Feed System/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

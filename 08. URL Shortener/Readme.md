@@ -141,3 +141,10 @@ Convert ID `2009215674938` to Base 62:
 ### High Availability and Reliability
 - Ensure consistent and reliable services using database replication and fault-tolerant design.
 
+---
+
+<div align="center">
+<a href="../07. Unique-Id Generator/README.md">&lt;&lt; Previous Page</a> | <a href="../09. Web Crawler/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---
