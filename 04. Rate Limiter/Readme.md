@@ -130,3 +130,10 @@ could cause more requests than allowed quota to go through.
 ### Monitoring
 - Regular analytics to ensure algorithm effectiveness and adjust rules as needed.
 
+---
+
+<div align="center">
+<a href="../03. System Design Framework/README.md">&lt;&lt; Previous Page</a> | <a href="../05. Consistent Hashing/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

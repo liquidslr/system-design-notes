@@ -259,4 +259,10 @@ value).
 - Data is replicated at multiple nodes.
 - There is no single point of failure as every node has the same set of responsibilities.
 
+---
 
+<div align="center">
+<a href="../05. Consistent Hashing/README.md">&lt;&lt; Previous Page</a> | <a href="../07. Unique-Id Generator/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

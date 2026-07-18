@@ -97,3 +97,10 @@ When servers are added or removed:
 - Akamai CDN
 - Maglev Load Balancer
 
+---
+
+<div align="center">
+<a href="../04. Rate Limiter/README.md">&lt;&lt; Previous Page</a> | <a href="../06. Key-Value Store/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

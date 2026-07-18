@@ -96,3 +96,10 @@ Avoid ambiguity by labeling units (e.g., `5 MB` instead of `5`).
 - **Cache Requirements:** Evaluate memory requirements for caching.
 - **Number of Servers:** Calculate hardware needs based on workload.
 
+---
+
+<div align="center">
+<a href="../01. Scaling/README.md">&lt;&lt; Previous Page</a> | <a href="../03. System Design Framework/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

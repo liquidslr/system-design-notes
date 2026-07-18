@@ -113,3 +113,10 @@ For a news feed system, divide the design into:
 3. **Deep Dive:** 10–25 minutes
 4. **Wrap-Up:** 3–5 minutes
 
+---
+
+<div align="center">
+<a href="../02. Back Of the Envelope Estimation/README.md">&lt;&lt; Previous Page</a> | <a href="../04. Rate Limiter/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---
