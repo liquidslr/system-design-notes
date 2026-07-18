@@ -180,3 +180,10 @@ In the high-level design, whenever a user types a search query, data is updated 
 ### Trending Queries
 - Handle real-time events by dynamically updating trie nodes or weighting recent queries more heavily.
 
+---
+
+<div align="center">
+<a href="../12. Chat System/README.md">&lt;&lt; Previous Page</a> | <a href="../14. Youtube/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

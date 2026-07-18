@@ -228,3 +228,10 @@ downloads blocks to construct the file.
 4. **Cloud Storage Failure:** Use cross-region replication to fetch unavailable files.
 5. **Notification Service Failure:** Clients reconnect to alternative servers.
 
+---
+
+<div align="center">
+<a href="../14. Youtube/README.md">&lt;&lt; Previous Page</a> | <a href="../16. Proximity Service/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

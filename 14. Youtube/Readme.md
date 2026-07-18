@@ -223,3 +223,10 @@ contains 3 queues and a task scheduler.
 ### Non-Recoverable Errors
 - Stop malformed video processing and return error codes.
 
+---
+
+<div align="center">
+<a href="../13. Search Autocomplete/README.md">&lt;&lt; Previous Page</a> | <a href="../15. Google Drive/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---
