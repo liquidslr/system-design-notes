@@ -607,3 +607,11 @@ DDoS is a challenge for exchanges as there are some internet-facing services. He
 Other interesting notes:
  * not all exchanges rely on putting everything on one big server, but some still do
  * modern exchanges rely more on cloud infrastructure and also on automatic market makers (AMM) to avoid maintaining an order book
+
+---
+
+<div align="center">
+<a href="../27.  Digital Wallet/README.md">&lt;&lt; Previous Page</a>
+</div>
+
+---

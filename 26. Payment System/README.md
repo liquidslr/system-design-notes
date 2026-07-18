@@ -329,3 +329,11 @@ Other talking points:
  * Geography - different regions might have different payment methods
  * Cash payment - very common in places like India and Brazil
  * Google/Apple Pay integration
+
+---
+
+<div align="center">
+<a href="../25. Real-time Gaming Leaderboard/README.md">&lt;&lt; Previous Page</a> | <a href="../27.  Digital Wallet/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

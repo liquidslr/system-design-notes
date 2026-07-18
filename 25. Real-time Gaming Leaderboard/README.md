@@ -448,3 +448,11 @@ Other things to discuss if time permits:
 - **Faster retrieval** - We can cache the user object via a Redis hash with mapping `user_id -> user object`. This enables faster retrieval vs. querying the database.
 - **Breaking ties** - When two players have the same score, we can break the tie by sorting them based on last played game.
 - **System failure recovery** - In the event of a large-scale Redis outage, we can recreate the leaderboard by going through the MySQL WAL entries and recreate it via an ad-hoc script
+
+---
+
+<div align="center">
+<a href="../24. S3-like Object Storage/README.md">&lt;&lt; Previous Page</a> | <a href="../26. Payment System/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

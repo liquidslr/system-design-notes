@@ -419,3 +419,11 @@ Here's the evolution of our design:
  * The previous approach, although performant, wasn't durable. Hence, we introduced Raft consensus with replication to avoid single points of failure
  * We also adopted CQRS with a reverse proxy to manage a transaction's lifecycle on behalf of our users
  * Finally, we partitioned our data across multiple raft groups, which are orchestrated using a distributed transaction mechanism - TC/C or distributed saga
+
+---
+
+<div align="center">
+<a href="../26. Payment System/README.md">&lt;&lt; Previous Page</a> | <a href="../28. Stock Exchange/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---
