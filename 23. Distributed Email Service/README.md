@@ -323,3 +323,11 @@ Additional talking points:
 - **Compliance** - PII needs to be stored in a reasonable way, given Europe's GDPR laws.
 - **Security** - email encryption, phishing protection, safe browsing, etc.
 - **Optimizations** - eg preventing duplication of the same attachments, sent multiple times by different users.
+
+---
+
+<div align="center">
+<a href="../22. Hotel Reservation System/README.md">&lt;&lt; Previous Page</a> | <a href="../24. S3-like Object Storage/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

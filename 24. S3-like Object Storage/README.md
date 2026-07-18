@@ -445,3 +445,11 @@ Things we covered:
 - Comparing differences between object, block and file storages
 - Covered uploading, downloading, listing, versioning of objects in a bucket
 - Deep dived in the design - data store and metadata store, replication and erasure coding, multipart uploads, sharding
+
+---
+
+<div align="center">
+<a href="../23. Distributed Email Service/README.md">&lt;&lt; Previous Page</a> | <a href="../25. Real-time Gaming Leaderboard/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---

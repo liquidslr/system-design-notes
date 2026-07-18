@@ -422,3 +422,11 @@ Here's our final design:
 <div style="margin-left:3rem">
     <img src="./images/final-design.png" alt="final-design" width="500" />
 </div>
+
+---
+
+<div align="center">
+<a href="../19. Distributed Message Queue/README.md">&lt;&lt; Previous Page</a> | <a href="../21. Ad Click Event Aggregation/README.md">Next Page &gt;&gt;</a>
+</div>
+
+---
