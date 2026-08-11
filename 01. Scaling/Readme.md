@@ -81,7 +81,7 @@ A **load balancer** distributes traffic among multiple servers. Benefits include
 - **Master Database:** Handles write operations.
    - All the data-modifying commands like insert, delete, or update must be sent to the master database.
 - **Slave Databases:** Handle read operations, improving performance and reliability.
-   - Since the ratio of reads to writes is higher is most applications; thus, the number of slave
+   - Since the ratio of reads to writes is higher in most applications; thus, the number of slave
 databases in a system is usually larger than the number of master databases.
 
 ### Benefits
