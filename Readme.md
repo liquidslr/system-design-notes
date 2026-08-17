@@ -37,6 +37,30 @@ Check the notes here: https://pagefy.io/system-design/system-design-interview-by
  * [Chapter 28 - Stock Exchange](./28.%20Stock%20Exchange/)
 
 
+# Use these notes with an AI coding agent
+
+These notes ship as an [Agent Skill](https://skills.sh), so Claude Code, Amp, Codex, Cursor and other
+agent hosts can look up the right chapter instead of guessing from memory.
+
+**Already cloned this repo?** Nothing to install. Opening it in Claude Code or Amp picks the skill up
+automatically. Ask things like *"what quorum settings give strong consistency?"* or
+*"walk me through designing a rate limiter"* and the agent reads the matching chapter first.
+
+**Want it anywhere else?**
+
+```bash
+npx skills add liquidslr/system-design-notes --skill system-design
+```
+
+Installed outside the repo, the skill fetches chapters from GitHub instead of the local files.
+
+The skill lives in [`.agents/skills/system-design/`](./.agents/skills/system-design/) and adds a
+topic index over the 28 chapters plus three files that are not in the notes themselves: a
+[cheatsheet](./.agents/skills/system-design/cheatsheet.md) of the numbers and decision rules worth
+memorising, a [patterns](./.agents/skills/system-design/patterns.md) index of recurring techniques,
+and a [glossary](./.agents/skills/system-design/glossary.md). Chapter content is not duplicated —
+the chapter files above stay the single source of truth.
+
 # Additonal Resources
 
 ### Rate Limiting
