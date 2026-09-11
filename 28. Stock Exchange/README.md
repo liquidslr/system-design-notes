@@ -404,7 +404,7 @@ Let's now explore how mmap works - it is a UNIX syscall, which maps a file on di
 One trick we can use is creating the file in `/dev/shm`, which stands for "shared memory". Hence, we have no disk access at all.
 
 ### **Event sourcing**
-Event sourcing is discussed in-depth in the [digital wallet chapter](../chapter28). Reference it for all the details.
+Event sourcing is discussed in-depth in the [digital wallet chapter](../27.%20%20Digital%20Wallet/). Reference it for all the details.
 
 In a nutshell, instead of storing current states, we store immutable state transitions:
 
