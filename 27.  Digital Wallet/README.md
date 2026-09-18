@@ -254,7 +254,7 @@ It consists of four concepts:
    * commands, unlike events, can fail and have some randomness due to eg IO or invalid state.
    * commands can produce zero or more events
    * event generation can contain randomness such as external IO. This will be revisited later
- * event - historical facts about events which occured in the system, eg "transferred 1$ from A to B".
+ * event - historical facts about events which occurred in the system, eg "transferred 1$ from A to B".
    * unlike commands, events are facts that have happened within our system
    * similar to commands, they need to be ordered, hence, they're enqueued in a FIFO queue
  * state - what has changed as a result of an event. Eg a key-value store between account and their balances.
