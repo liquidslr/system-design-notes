@@ -37,7 +37,7 @@ Check the notes here: https://pagefy.io/system-design/system-design-interview-by
  * [Chapter 28 - Stock Exchange](./28.%20Stock%20Exchange/)
 
 
-# Additonal Resources
+# Additional Resources
 
 ### Rate Limiting
 - [Circuit Breaker Algorithm](https://martinfowler.com/bliki/CircuitBreaker.html)
