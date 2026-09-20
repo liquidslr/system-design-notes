@@ -33,3 +33,7 @@ youtube-system/data/
 google-drive/data/
 google-drive/.drive_token
 google-drive/.pytest_cache/
+
+# Proximity Service runtime data
+proximity-service/data/
+proximity-service/.pytest_cache/
