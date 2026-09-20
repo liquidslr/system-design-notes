@@ -1,0 +1,7 @@
+fastapi>=0.104
+uvicorn>=0.24
+aiosqlite>=0.19
+pydantic>=2.5
+httpx>=0.25
+pytest>=7.4
+pytest-asyncio>=0.23
