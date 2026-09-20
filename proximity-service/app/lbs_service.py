@@ -8,8 +8,6 @@ Two search strategies implemented per chapter:
 """
 from __future__ import annotations
 
-import asyncio
-
 from . import geohash as gh
 from .business_service import SpatialIndex
 from .cache import CacheLayer
