@@ -28,3 +28,8 @@ Thumbs.db
 
 # YouTube system runtime data
 youtube-system/data/
+
+# Google Drive system runtime data
+google-drive/data/
+google-drive/.drive_token
+google-drive/.pytest_cache/
