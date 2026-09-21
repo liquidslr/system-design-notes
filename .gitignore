@@ -1,1 +1,39 @@
+# Web Crawler generated files
+web-crawler/crawled_pages/
+web-crawler/crawler_data.db
+crawled_pages/
+crawler_data.db
+
+# Notification System generated files
+notification_system.db
+notification-system/notification_system.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+
+# Virtual environment
+venv/
+
+# OS
+Thumbs.db
 .DS_Store
+
+# YouTube system runtime data
+youtube-system/data/
+
+# Google Drive system runtime data
+google-drive/data/
+google-drive/.drive_token
+google-drive/.pytest_cache/
+
+# Proximity Service runtime data
+proximity-service/data/
+proximity-service/.pytest_cache/

@@ -1,0 +1,1 @@
+{"version":3,"file":"range-mappings.d.ts","sourceRoot":"","sources":["../src/range-mappings.ts"],"names":[],"mappings":"AAGA,MAAM,MAAM,YAAY,GAAG,MAAM,CAAC;AAClC,MAAM,MAAM,aAAa,GAAG,YAAY,EAAE,EAAE,CAAC;AAE7C,wBAAgB,mBAAmB,CAAC,KAAK,EAAE,MAAM,GAAG,aAAa,CAoBhE;AAED,wBAAgB,mBAAmB,CAAC,OAAO,EAAE,aAAa,GAAG,MAAM,CAkBlE"}

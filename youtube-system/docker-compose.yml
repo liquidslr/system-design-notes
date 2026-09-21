@@ -1,0 +1,65 @@
+services:
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api-server:
+    build:
+      context: .
+      dockerfile: api.Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DB_PATH: data/youtube.db
+      ORIGINAL_DIR: data/original
+      TRANSCODED_DIR: data/transcoded
+      JWT_SECRET: "dev-only-secret-change-in-production"
+      ACCESS_TOKEN_TTL: "900"
+      REFRESH_TOKEN_TTL: "604800"
+      BAN_MARKER_TTL: "86400"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  transcoder-worker:
+    build:
+      context: .
+      dockerfile: worker.Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      TRANSCODED_DIR: data/transcoded
+      CONCURRENCY: "2"
+    volumes:
+      - ./data:/app/data
+    # expose (not ports) so multiple instances can share the service
+    expose:
+      - "8001"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  cdn:
+    image: nginx:alpine
+    ports:
+      - "8003:80"
+    volumes:
+      - ./data/transcoded:/usr/share/nginx/html/media:ro
+      - ./cdn/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - transcoder-worker
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api-server
+      - cdn
