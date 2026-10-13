@@ -85,7 +85,7 @@ Check the notes here: https://pagefy.io/system-design/system-design-interview-by
 ### Youtube
 - [YouTube Architecture](http://highscalability.com/youtube-architecture)
 - [YouTube scalability 2012](https://www.youtube.com/watch?v=w5WVu624fY8)
-- [Transcoding Videos at Scale](https://www.egnyte.com/blog/2018/12/transcoding-how-we-serve-videos-at-scale/)
+- [Transcoding Videos at Scale](https://www.egnyte.com/blog/post/transcoding-how-we-serve-videos-at-scale)
 - [Facebook Video Broadcasting](https://engineering.fb.com/ios/under-the-hood-broadcasting-live-video-to-millions/)
 - [Netflix Video Encoding at Scale](https://netflixtechblog.com/high-quality-video-encoding-at-scale-d159db052746)
 - [Netflix Shot based encoding](https://netflixtechblog.com/optimized-shot-based-encodes-now-streaming-4b9464204830)
