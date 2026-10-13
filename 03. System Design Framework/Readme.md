@@ -27,7 +27,7 @@ This chapter introduces a **4-step framework** for navigating system design inte
 **Problem:** Design a news feed system.  
 **Questions:**
 - Is it a mobile app, web app, or both?
-- How many friends can a user have?
+- How many feeds can a user have?
 - Should the feed include images and videos?
 - Is the feed sorted by reverse chronological order?
 
