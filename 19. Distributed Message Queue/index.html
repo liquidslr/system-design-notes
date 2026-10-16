@@ -1,0 +1,1824 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-font-size="md">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 19 - Distributed Message Queue — System Design Notes</title>
+  <style>
+
+:root {
+  --bg-body: #0b0f19;
+  --bg-sidebar: #0f172a;
+  --bg-header: rgba(15, 23, 42, 0.85);
+  --bg-card: #131d35;
+  --bg-card-hover: #1e293b;
+  --bg-input: #1e293b;
+  --bg-code: #070b14;
+  --border-subtle: #1e293b;
+  --border-card: #27354f;
+  --text-main: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #38bdf8;
+  --accent-hover: #0284c7;
+  --accent-glow: rgba(56, 189, 248, 0.18);
+  --accent-soft: rgba(56, 189, 248, 0.12);
+  --success: #10b981;
+  --success-glow: rgba(16, 185, 129, 0.15);
+  --code-header-bg: #0d1527;
+  --table-border: #27354f;
+  --table-head-bg: #1e293b;
+  --table-row-alt: #162036;
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.6);
+  --font-base: 16px;
+  --sidebar-width: 320px;
+  --toc-width: 260px;
+}
+
+[data-theme="light"] {
+  --bg-body: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-header: rgba(255, 255, 255, 0.88);
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-input: #f1f5f9;
+  --bg-code: #0f172a;
+  --border-subtle: #e2e8f0;
+  --border-card: #e2e8f0;
+  --text-main: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent: #0284c7;
+  --accent-hover: #0369a1;
+  --accent-glow: rgba(2, 132, 199, 0.15);
+  --accent-soft: rgba(2, 132, 199, 0.08);
+  --success: #059669;
+  --success-glow: rgba(5, 150, 105, 0.15);
+  --code-header-bg: #1e293b;
+  --table-border: #e2e8f0;
+  --table-head-bg: #f1f5f9;
+  --table-row-alt: #f8fafc;
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.12);
+}
+
+[data-font-size="sm"] { --font-base: 15px; }
+[data-font-size="md"] { --font-base: 16px; }
+[data-font-size="lg"] { --font-base: 18px; }
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: var(--font-base);
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg-body);
+  color: var(--text-main);
+  line-height: 1.7;
+  overflow-x: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-card);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Layout */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Left Sidebar */
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  transition: transform 0.25s ease;
+}
+
+.sidebar-header {
+  padding: 1.25rem 1.25rem 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.5rem;
+}
+
+.brand-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.brand-title svg {
+  color: var(--accent);
+}
+
+.brand-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+/* Sidebar Search & Filter */
+.sidebar-search-box {
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.filter-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.filter-input-wrap svg {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.filter-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.2rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.filter-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.global-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.global-search-btn:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+
+.kbd-badge {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+/* Sidebar Progress */
+.progress-card {
+  padding: 0.75rem 1.25rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.4rem;
+}
+
+.progress-track {
+  width: 100%;
+  height: 6px;
+  background: var(--border-subtle);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* Navigation List */
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.nav-chapter-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: all 0.18s ease;
+  position: relative;
+  border-left: 3px solid transparent;
+}
+
+.nav-chapter-item:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+}
+
+.nav-chapter-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  border-left-color: var(--accent);
+}
+
+.nav-check-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.nav-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.nav-checkbox.checked {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.nav-checkbox.checked::after {
+  content: '✓';
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.nav-num {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  min-width: 24px;
+  text-align: center;
+  font-family: monospace;
+}
+
+.nav-chapter-item.active .nav-num {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.nav-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.nav-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+}
+
+.footer-btn {
+  background: none;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.footer-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--border-card);
+}
+
+/* Main Content Area */
+.main-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top Sticky Header */
+.top-header {
+  position: sticky;
+  top: 0;
+  height: 56px;
+  background: var(--bg-header);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  z-index: 90;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.menu-toggle-btn {
+  display: none;
+  background: none;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  padding: 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.breadcrumbs {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.breadcrumbs strong {
+  color: var(--text-main);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.icon-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 0.45rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
+/* Content Container */
+.content-layout {
+  display: flex;
+  flex: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.content-article-area {
+  flex: 1;
+  min-width: 0;
+  padding: 2.5rem 3rem;
+  max-width: 900px;
+}
+
+/* Chapter Panes */
+.chapter-pane {
+  display: none;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+.chapter-pane.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Chapter Header Card */
+.chapter-header-card {
+  padding-bottom: 2rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ch-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.ch-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+}
+
+.mark-done-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mark-done-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
+.mark-done-btn.is-read {
+  background: var(--success);
+  border-color: var(--success);
+  color: #ffffff;
+}
+
+.chapter-main-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--text-main);
+  margin-bottom: 1rem;
+  letter-spacing: -0.03em;
+}
+
+.ch-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Chapter Body Typography */
+.chapter-body {
+  color: var(--text-main);
+  font-size: 1rem;
+}
+
+.chapter-body h1 {
+  display: none; /* Already rendered in header card */
+}
+
+.chapter-body h2 {
+  font-size: 1.55rem;
+  font-weight: 750;
+  color: var(--text-main);
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  scroll-margin-top: 70px;
+  position: relative;
+}
+
+.chapter-body h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-top: 1.85rem;
+  margin-bottom: 0.75rem;
+  scroll-margin-top: 70px;
+  position: relative;
+}
+
+.chapter-body h4 {
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--text-secondary);
+  margin-top: 1.35rem;
+  margin-bottom: 0.5rem;
+  scroll-margin-top: 70px;
+}
+
+.heading-anchor {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.85em;
+  opacity: 0;
+  margin-left: 0.4rem;
+  transition: opacity 0.15s;
+}
+
+.chapter-body h2:hover .heading-anchor,
+.chapter-body h3:hover .heading-anchor {
+  opacity: 1;
+}
+
+.chapter-body p {
+  margin-bottom: 1.2rem;
+  color: var(--text-main);
+}
+
+.chapter-body ul, .chapter-body ol {
+  margin-bottom: 1.2rem;
+  padding-left: 1.6rem;
+  color: var(--text-main);
+}
+
+.chapter-body li {
+  margin-bottom: 0.45rem;
+}
+
+.chapter-body hr {
+  border: none;
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 2.5rem 0;
+}
+
+.chapter-body blockquote {
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 0.85rem 1.25rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1.5rem 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.chapter-body a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--accent);
+  transition: all 0.2s;
+}
+
+.chapter-body a:hover {
+  color: var(--accent-hover);
+  border-bottom-style: solid;
+}
+
+/* Inline Code */
+.chapter-body code {
+  font-family: "JetBrains Mono", Consolas, "Fira Code", Monaco, monospace;
+  font-size: 0.88em;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--accent);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+/* Code Blocks */
+.code-wrapper {
+  margin: 1.5rem 0;
+  background: var(--bg-code);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.85rem;
+  background: var(--code-header-bg);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.code-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: monospace;
+}
+
+.copy-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s;
+}
+
+.copy-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
+.code-wrapper pre {
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #e2e8f0;
+}
+
+.code-wrapper pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* Tables */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  border: 1px solid var(--table-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.table-container table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.table-container th {
+  background: var(--table-head-bg);
+  color: var(--text-main);
+  font-weight: 700;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--table-border);
+  border-right: 1px solid var(--table-border);
+}
+
+.table-container td {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--table-border);
+  border-right: 1px solid var(--table-border);
+  color: var(--text-secondary);
+}
+
+.table-container th:last-child,
+.table-container td:last-child {
+  border-right: none;
+}
+
+.table-container tr:nth-child(even) {
+  background: var(--table-row-alt);
+}
+
+.table-container tr:hover td {
+  background: var(--accent-soft);
+  color: var(--text-main);
+}
+
+/* Diagrams and Images */
+.diagram-wrapper {
+  margin: 2rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.25s ease;
+}
+
+.diagram-wrapper:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+.diagram-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  cursor: zoom-in;
+  transition: transform 0.2s ease;
+  display: block;
+}
+
+.diagram-hint {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  user-select: none;
+}
+
+.diagram-wrapper:hover .diagram-hint {
+  color: var(--accent);
+}
+
+/* Chapter Navigation Footer */
+.chapter-nav-footer {
+  margin-top: 3.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.footer-nav-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.footer-nav-card:hover {
+  border-color: var(--accent);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.footer-nav-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.footer-nav-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.footer-nav-card.next-card {
+  text-align: right;
+}
+
+/* Right TOC Rail */
+.right-toc-rail {
+  width: var(--toc-width);
+  min-width: var(--toc-width);
+  position: sticky;
+  top: 56px;
+  height: calc(100vh - 56px);
+  overflow-y: auto;
+  padding: 2.5rem 1.25rem 2.5rem 0.5rem;
+}
+
+.toc-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 1.15rem;
+}
+
+.toc-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.toc-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.toc-link {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  display: block;
+  line-height: 1.35;
+  transition: color 0.15s;
+}
+
+.toc-link:hover {
+  color: var(--accent);
+}
+
+.toc-link.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.toc-item.level-3 {
+  padding-left: 0.85rem;
+  font-size: 0.76rem;
+}
+
+/* Search Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10vh;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.search-modal {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 640px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 75vh;
+  animation: modalScale 0.18s ease-out;
+}
+
+@keyframes modalScale {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.search-modal-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.search-modal-header svg {
+  color: var(--accent);
+}
+
+.search-modal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-size: 1.05rem;
+  outline: none;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.modal-close-btn:hover {
+  color: var(--text-main);
+}
+
+.search-results-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.search-result-card {
+  padding: 0.75rem 0.85rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.search-result-card:hover,
+.search-result-card.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.sr-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.sr-ch-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.sr-sec-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0.25rem;
+}
+
+.sr-snippet {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.search-highlight {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  padding: 0 0.15rem;
+  border-radius: 2px;
+}
+
+.search-modal-footer {
+  padding: 0.65rem 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Lightbox Modal */
+.lightbox-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-overlay.open {
+  display: flex;
+}
+
+.lightbox-img-stage {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: grab;
+  position: relative;
+}
+
+.lightbox-img-stage.grabbing {
+  cursor: grabbing;
+}
+
+.lightbox-img {
+  max-width: 90vw;
+  max-height: 82vh;
+  object-fit: contain;
+  transition: transform 0.1s ease-out;
+  user-select: none;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+}
+
+.lightbox-toolbar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  border-radius: 999px;
+  padding: 0 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.lightbox-btn {
+  background: none;
+  border: none;
+  color: #f1f5f9;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.2s;
+}
+
+.lightbox-btn:hover {
+  background: #334155;
+  color: var(--accent);
+}
+
+.lightbox-caption {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* Media Queries */
+@media (max-width: 1240px) {
+  .right-toc-rail {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .menu-toggle-btn {
+    display: inline-flex;
+  }
+  .content-article-area {
+    padding: 1.5rem 1.25rem;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .sidebar, .top-header, .right-toc-rail, .chapter-nav-footer, .mark-done-btn, .diagram-hint {
+    display: none !important;
+  }
+  body, .app-container, .main-wrapper, .content-article-area {
+    background: #ffffff !important;
+    color: #000000 !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .chapter-pane {
+    display: block !important;
+    page-break-after: always;
+  }
+}
+
+  .standalone-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+  }
+  .standalone-top-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 0.4rem 0.8rem;
+    background: var(--accent-soft);
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .back-btn:hover {
+    background: var(--accent-glow);
+  }
+  </style>
+</head>
+<body>
+  <div class="standalone-container">
+    <div class="standalone-top-nav">
+      <a href="../index.html#ch-19" class="back-btn">&larr; Back to Master Index (All 28 Chapters)</a>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="icon-btn" onclick="toggleTheme()" title="Toggle Dark/Light theme">🌓 Theme</button>
+        <button class="icon-btn" onclick="window.print()" title="Print Chapter">🖨️ Print</button>
+      </div>
+    </div>
+    
+    <header class="chapter-header-card">
+      <span class="ch-pill">Chapter 19</span>
+      <h1 class="chapter-main-title">Chapter 19 - Distributed Message Queue</h1>
+      <div class="ch-meta-row">
+        <span class="meta-item">⏱️ 23 min read</span>
+        <span class="meta-item">📝 4,523 words</span>
+        <span class="meta-item">🖼️ 34 diagrams</span>
+      </div>
+    </header>
+
+    <div class="chapter-body">
+      <h1 id="ch-19-chapter-19-distributed-message-queue">Chapter 19: Distributed Message Queue</h1>
+<h2 id="ch-19-introduction" class="section-heading">Introduction <a href="#ch-19-introduction" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>We'll be designing a <strong>distributed message queue</strong> in this chapter.</p>
+<p>Benefits of message queues:
+- <strong>Decoupling</strong>: Eliminates tight coupling between components. Let them update separately.
+- <strong>Improved scalability</strong>: Producers and consumers can be scaled independently based on traffic.
+- <strong>Increased availability</strong>: If one part of the system goes down, other parts continue interacting with the queue.
+- <strong>Better performance</strong>: Producers can produce messages without waiting for consumer confirmation.</p>
+<p>Some popular message queue implementations - Kafka, RabbitMQ, RocketMQ, Apache Pulsar, ActiveMQ, ZeroMQ.</p>
+<p>Strictly speaking, Kafka and Pulsar are not message queues. They are event streaming platforms.
+There is however a convergence of features which blurs the distinction between message queues and event streaming platforms.</p>
+<p>In this chapter, we'll be building a message queue with support for more advanced features such as long data retention, repeated message consumption, etc.</p>
+<hr />
+<h2 id="ch-19-step-1-understand-the-problem-and-establish-design-scope" class="section-heading">Step 1: Understand the Problem and Establish Design Scope <a href="#ch-19-step-1-understand-the-problem-and-establish-design-scope" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>Message queues ought to support few basic features - producers produce messages and consumers consume them.
+There are, however, different considerations with regards to performance, message delivery, data retention, etc.</p>
+<p>Here's a set of potential questions between Candidate and Interviewer:
+ * C: What's the format and average message size? Is it text only?
+ * I: Messages are text-only and usually a few KBs
+ * C: Can messages be repeatedly consumed?
+ * I: Yes, messages can be repeatedly consumed by different consumers. This is an added requirement, which traditional message queues don't support.
+ * C: Are messages consumed in the same order they were produced?
+ * I: Yes, order guarantee should be preserved. This is an added requirement, traditional message queues don't support this.
+ * C: What are the data retention requirements?
+ * I: Messages need to have a retention of two weeks. This is an added requirement.
+ * C: How many producers and consumers do we want to support?
+ * I: The more, the better.
+ * C: What data delivery semantic do we want to support? At-most-once, at-least-once, exactly-once?
+ * I: We definitely want to support at-least-once. Ideally, we can support all and make them configurable.
+ * C: What's the target throughput for end-to-end latency?
+ * I: It should support high throughput for use cases like log aggregation and low throughput for more traditional use cases.</p>
+<h3 id="ch-19-functional-requirements" class="section-heading"><strong>Functional requirements</strong> <a href="#ch-19-functional-requirements" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<ul>
+<li>Producers send messages to a message queue</li>
+<li>Consumers consume messages from the queue</li>
+<li>Messages can be consumed once or repeatedly</li>
+<li>Historical data can be truncated</li>
+<li>Message size is in the KB range</li>
+<li>Order of messages needs to be preserved</li>
+<li>Data delivery semantics is configurable - at-most-once/at-least-once/exactly-once.</li>
+</ul>
+<h3 id="ch-19-non-functional-requirements" class="section-heading"><strong>Non-functional requirements</strong> <a href="#ch-19-non-functional-requirements" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<ul>
+<li><strong>High throughput or low latency</strong>: Configurable based on use-case</li>
+<li><strong>Scalable</strong>: system should be distributed and support a sudden surge in message volume</li>
+<li><strong>Persistent and durable</strong>: data should be persisted on disk and replicated among nodes</li>
+</ul>
+<p>Traditional message queues typically don't support data retention and don't provide ordering guarantees. This greatly simplifies the design and we'll discuss it.</p>
+<hr />
+<h2 id="ch-19-step-2-propose-high-level-design-and-get-buy-in" class="section-heading">Step 2: Propose High-Level Design and Get Buy-In <a href="#ch-19-step-2-propose-high-level-design-and-get-buy-in" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>Key components of a message queue:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/message-queue-components.png" alt="message-queue-components" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Producer sends messages to a queue</li>
+<li>Consumer subscribes to a queue and consumes the subscribed messages</li>
+<li>Message queue is a service in the middle which decouples producers from consumers, letting them scale independently.</li>
+<li>Producer and consumer are both clients, while the message queue is the server.</li>
+</ul>
+<h3 id="ch-19-messaging-models" class="section-heading"><strong>Messaging models</strong> <a href="#ch-19-messaging-models" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>The first type of messaging model is point-to-point and it's commonly found in traditional message queues:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/point-to-point-model.png" alt="point-to-point-model" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>A message is sent to a queue and it's consumed by exactly one consumer.</li>
+<li>There can be multiple consumers, but a message is consumed only once.</li>
+<li>Once message is acknowledged as consumed, it is removed from the queue.</li>
+<li>There is no data retention in the point-to-point model, but there is such in our design.</li>
+</ul>
+<p>On the other hand, the publish-subscribe model is more common for event streaming platforms:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/publish-subscribe-model.png" alt="publish-subscribe-model" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>In this model, messages are associated to a topic.</li>
+<li>Consumers are subscribed to a topic and they receive all messages sent to this topic.</li>
+</ul>
+<h3 id="ch-19-topics-partitions-and-brokers" class="section-heading"><strong>Topics, partitions and brokers</strong> <a href="#ch-19-topics-partitions-and-brokers" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>What if the data volume for a topic is too large? One way to scale is by splitting a topic into partitions (aka sharding):</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/partitions.png" alt="partitions" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Messages sent to a topic are evenly distributed across partitions</li>
+<li>The servers that host partitions are called brokers</li>
+<li>Each topic operates like a queue using FIFO for message processing. Message order is preserved within a partition.</li>
+<li>The position of a message within the partition is called an <strong>offset</strong>.</li>
+<li>Each message produced is sent to a specific partition. A partition key specifies which partition a message should land in. </li>
+<li>Eg a <code>user_id</code> can be used as a partition key to guarantee order of messages for the same user.</li>
+<li>Each consumer subscribes to one or more partitions. When there are multiple consumers for the same messages, they form a consumer group.</li>
+</ul>
+<h3 id="ch-19-consumer-groups" class="section-heading"><strong>Consumer groups</strong> <a href="#ch-19-consumer-groups" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Consumer groups are a set of consumers working together to consume messages from a topic:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/consumer-groups.png" alt="consumer-groups" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Messages are replicated per consumer group (not per consumer).</li>
+<li>Each consumer group maintains its own offset.</li>
+<li>Reading messages in parallel by a consumer group improves throughput but hampers the ordering guarantee.</li>
+<li>This can be mitigated by only allowing one consumer from a group to be subscribed to a partition. </li>
+<li>This means that we can't have more consumers in a group than there are partitions.</li>
+</ul>
+<h3 id="ch-19-high-level-architecture" class="section-heading"><strong>High-level architecture</strong> <a href="#ch-19-high-level-architecture" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/high-level-architecture.png" alt="high-level-architecture" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li><strong>Clients</strong>: producer and consumer. Producer pushes messages to a designated topic. Consumer group subscribes to messages from a topic.</li>
+<li><strong>Brokers</strong>: hold multiple partitions. A partition holds a subset of messages for a topic.</li>
+<li><strong>Data storage</strong>: stores messages in partitions.</li>
+<li><strong>State storage</strong>: keeps the consumer states.</li>
+<li><strong>Metadata storage</strong>: stores configuration and topic properties</li>
+<li><strong>Coordination service</strong>: responsible for service discovery (which brokers are alive) and leader election (which broker is leader, responsible for assigning partitions).</li>
+</ul>
+<hr />
+<h2 id="ch-19-step-3-design-deep-dive" class="section-heading">Step 3: Design Deep Dive <a href="#ch-19-step-3-design-deep-dive" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>In order to achieve high throughput and preserve the high data retention requirement, we made some important design choices:
+ * We chose an on-disk data structure which takes advantage of the properties of modern HDD and disk caching strategies of modern OS-es.
+ * The message data structure is immutable to avoid extra copying, which we want to avoid in a high volume/high traffic system.
+ * We designed our writes around batching as small I/O is an enemy of high throughput.</p>
+<h3 id="ch-19-data-storage" class="section-heading"><strong>Data storage</strong> <a href="#ch-19-data-storage" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>In order to find the best data store for messages, we must examine a message's properties:
+ * Write-heavy, read-heavy
+ * No update/delete operations. In traditional message queues, there is a "delete" operation as messages are not retained.
+ * Predominantly sequential read/write access pattern.</p>
+<p>What are our options:
+- <strong>Database</strong>: not ideal as typical databases don't support well both write and read heavy systems.
+- <strong>Write-ahead log (WAL)</strong>: a plain text file which only supports appending to it and is very HDD-friendly. 
+  * We split partitions into segments to avoid maintaining a very large file.
+  * Old segments are read-only. Writes are accepted by latest segment only.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/wal-example.png" alt="wal-example" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>WAL files are extremely efficient when used with traditional HDDs. </p>
+<p>There is a misconception that HDD acces is slow, but that hugely depends on the access pattern.
+When the access pattern is sequential (as in our case), HDDs can achieve several MB/s write/read speed which is sufficient for our needs.
+We also piggyback on the fact that the OS caches disk data in memory aggressively.</p>
+<h3 id="ch-19-message-data-structure" class="section-heading"><strong>Message data structure</strong> <a href="#ch-19-message-data-structure" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>It is important that the message schema is compliant between producer, queue and consumer to avoid extra copying. This allows much more efficient processing.</p>
+<p>Example message structure:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/message-structure.png" alt="message-structure" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>The key of the message specifies which partition a message belongs to. An example mapping is <code>hash(key) % numPartitions</code>.
+For more flexibility, the producer can override default keys in order to control which partitions messages are distributed to.</p>
+<p>The message value is the payload of a message. It can be plaintext or a compressed binary block.</p>
+<p><strong>Note:</strong> Message keys, unlike traditional KV stores, need not be unique. It is acceptable to have duplicate keys and for it to even be missing.</p>
+<p>Other message files:
+- <strong>Topic</strong>: topic the message belongs to
+- <strong>Partition</strong>: The ID of the partition a message belongs to
+- <strong>Offset</strong>: The position of the message in a partition. A message can be located via <code>topic</code>, <code>partition</code>, <code>offset</code>.
+- <strong>Timestamp</strong>: When the message is stored
+- <strong>Size</strong>: the size of this message
+- <strong>CRC</strong>: checksum to ensure message integrity</p>
+<p>Additional features such as filtering can be supported by adding additional fields.</p>
+<h3 id="ch-19-batching" class="section-heading"><strong>Batching</strong> <a href="#ch-19-batching" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Batching is critical for the performance of our system. We apply it in the producer, consumer and message queue.</p>
+<p>It is critical because:
+ * It allows the operating system to group messages together, amortizing the cost of expensive network round trips
+ * Messages are written to the WAL in groups sequentially, which leads to a lot of sequential writes and disk caching.</p>
+<p>There is a trade-off between latency and throughput:
+ * High batching leads to high throughput and higher latency. 
+ * Less batching leads to lower throughput and lower latency.</p>
+<p>If we need to support lower latency since the system is deployed as a traditional message queue, the system could be tuned to use a smaller batch size.</p>
+<p>If tuned for throughput, we might need more partitions per topic to compensate for the slower sequential disk write throughput.</p>
+<h3 id="ch-19-producer-flow" class="section-heading"><strong>Producer flow</strong> <a href="#ch-19-producer-flow" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>If a producer wants to send a message to a partition, which broker should it connect to?</p>
+<p>One option is to introduce a routing layer, which route messages to the correct broker. If replication is enabled, the correct broker is the leader replica:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/routing-layer.png" alt="routing-layer" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Routing layer reads the replication plan from the metadata store and caches it locally.</li>
+<li>Producer sends a message to the routing layer.</li>
+<li>Message is forwarded to broker 1 who is the leader of the given partition</li>
+<li>Follower replicas pull the new message from the leader. Once enough confirmations are received, the leader commits the data and responds to the producer.</li>
+</ul>
+<p>The reason for having replicas is to enable fault tolerance.</p>
+<p>This approach works but has some drawbacks:
+ * Additional network hops due to the extra component
+ * The design doesn't enable batching messages</p>
+<p>To mitigate these issues, we can embed the routing layer into the producer:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/routing-layer-producer.png" alt="routing-layer-producer" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Fewer network hops lead to lower latency</li>
+<li>Producers can control which partition a message is routed to</li>
+<li>The buffer allows us to batch messages in-memory and send out larger batches in a single request, which increases throughput.</li>
+</ul>
+<p>The batch size choice is a classical trade-off between throughput and latency. </p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/batch-size-throughput-vs-latency.png" alt="batch-size-throughput-vs-latency" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Larger batch size leads to longer wait time before batch is committed. </li>
+<li>Smaller batch size leads to request being sent sooner and having lower latency but lower throughput.</li>
+</ul>
+<h3 id="ch-19-consumer-flow" class="section-heading"><strong>Consumer flow</strong> <a href="#ch-19-consumer-flow" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>The consumer specifies its offset in a partition and receives a chunk of messages, beginning from that offset:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/consumer-example.png" alt="consumer-example" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>One important consideration when designing the consumer is whether to use a push or a pull model:
+- <strong>Push model</strong>: leads to lower latency as broker pushes messages to consumer as it receives them.
+  * However, if rate of consumption falls behind the rate of production, the consumer can be overwhelmed.
+  * It is challenging to deal with consumers with varying processing power as the broker controls the rate of consumption.
+- <strong>Pull model</strong>: leads to the consumer controlling the consumption rate. 
+  * If rate of consumption is slow, consumer will not be overwhelmed and we can scale it to catch up.
+  * The pull model is more suitable for batch processing, because with the push model, the broker can't know how many messages a consumer can handle. 
+  * With the pull model, on the other hand, consumers can aggressively fetch large message batches.
+  * The down side is the higher latency and extra network calls when there are no new messages. Latter issue can be mitigated using long polling.</p>
+<p>Hence, most message queues (and us) choose the pull model.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/consumer-flow.png" alt="consumer-flow" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>A new consumer subscribes to topic A and joins group 1.</li>
+<li>The correct broker node is found by hashing the group name. This way, all consumers in a group connect to the same broker.</li>
+<li>Note that this consumer group coordinator is different from the coordination service (ZooKeeper).</li>
+<li>Coordinator confirms that the consumer has joined the group and assigns partition 2 to that consumer.</li>
+<li>There are different partition assignment strategies - round-robin, range, etc.</li>
+<li>Consumer fetches latest messages from the last offset. The state storage keeps the consumer offsets.</li>
+<li>Consumer processes messages and commits the offset to the broker. The order of those operations affects the message delivery semantics.</li>
+</ul>
+<h3 id="ch-19-consumer-rebalancing" class="section-heading"><strong>Consumer rebalancing</strong> <a href="#ch-19-consumer-rebalancing" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Consumer rebalancing is responsible for deciding which consumers are responsible for which partition.</p>
+<p>This process occurs when a consumer joins/leaves or a partition is added/removed.</p>
+<p>The broker, acting as a coordinator plays a huge role in orchestrating the rebalancing workflow.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/consumer-rebalancing.png" alt="consumer-rebalancing" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>All consumers from the same group are connected to the same coordinator. The coordinator is found by hashing the group name.</li>
+<li>When the consumer list changes, the coordinator chooses a new leader of the group.</li>
+<li>The leader of the group calculates a new partition dispatch plan and reports it back to the coordinator, which broadcasts it to the other consumers.</li>
+</ul>
+<p>When the coordinator stops receiving heartbeats from the consumers in a group, a rebalancing is triggered:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/consumer-rebalance-example.png" alt="consumer-rebalance-example" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Let's explore what happens when a consumer joins a group:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/consumer-join-group-usecase.png" alt="consumer-join-group-usecase" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Initially, only consumer A is in the group and it consumes all partitions.</li>
+<li>Consumer B sends a request to join the group.</li>
+<li>The coordinator notifies all group members that it's time to rebalance passively - as a response to the heartbeat.</li>
+<li>Once all consumers rejoin the group, the coordinator chooses a leader and notifies the rest about the election result.</li>
+<li>The leader generates the partition dispatch plan and sends it to the coordinator. Others wait for the dispatch plan.</li>
+<li>Consumers start consuming from the newly assigned partitions.</li>
+</ul>
+<p>Here's what happens when a consumer leaves the group:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/consumer-leaves-group-usecase.png" alt="consumer-leaves-group-usecase" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Consumer A and B are in the same group</li>
+<li>Consumer B asks to leave the group</li>
+<li>When coordinator receives A's heartbeat, it informs them that it's time to rebalance.</li>
+<li>The rest of the steps are the same.</li>
+</ul>
+<p>The process is similar when a consumer doesn't send a heartbeat for a long time:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/consumer-no-heartbeat-usecase.png" alt="consumer-no-heartbeat-usecase" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<h3 id="ch-19-state-storage" class="section-heading"><strong>State storage</strong> <a href="#ch-19-state-storage" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>The state storage stores mapping between partitions and consumers, as well as the last consumed offsets for a partition.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/state-storage.png" alt="state-storage" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Group 1's offset is at 6, meaning all previous messages are consumed. If a consumer crashes, the new consumer will continue from that message on wards.</p>
+<p>Data access patterns for consumer states:
+ * Frequent read/write operations, but low volume
+ * Data is updated frequently, but rarely deleted
+ * Random read/write
+ * Data consistency is important</p>
+<p>Given these requirements, a fast KV storage like Zookeeper is ideal.</p>
+<h3 id="ch-19-metadata-storage" class="section-heading"><strong>Metadata storage</strong> <a href="#ch-19-metadata-storage" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>The metadata storage stores configuration and topic properties - partition number, retention period, replica distribution.</p>
+<p>Metadata doesn't change often and volume is small, but there is a high consistency requirement.
+Zookeeper is a good choice for this storage.</p>
+<h3 id="ch-19-zookeeper" class="section-heading"><strong>ZooKeeper</strong> <a href="#ch-19-zookeeper" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Zookeeper is essential for building distributed message queues.</p>
+<p>It is a hierarchical key-value store, commonly used for a distributed configuration, synchronization service and naming registry (ie service discovery).</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/zookeeper.png" alt="zookeeper" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>With this change, the broker only needs to maintain data for the messages. Metadata and state storage is in Zookeeper.</p>
+<p>Zookeeper also helps with leader election of the broker replicas.</p>
+<h3 id="ch-19-replication" class="section-heading"><strong>Replication</strong> <a href="#ch-19-replication" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>In distributed systems, hardware issues are inevitable. We can tackle this via replication to achieve high availability.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/replication-example.png" alt="replication-example" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Each partition is replicated across multiple brokers, but there is only one leader replica.</li>
+<li>Producers send messages to leader replicas</li>
+<li>Followers pull the replicated messages from the leader</li>
+<li>Once enough replicas are synchronized, the leader returns acknowledgment to the producer</li>
+<li>Distribution of replicas for each partition is called the replica distribution plan.</li>
+<li>The leader for a given partition creates the replica distribution plan and saves it in Zookeeper</li>
+</ul>
+<h3 id="ch-19-in-sync-replicas" class="section-heading"><strong>In-sync replicas</strong> <a href="#ch-19-in-sync-replicas" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>One problem we need to tackle is keeping messages in-sync between the leader and the followers for a given partition.</p>
+<p>In-sync replicas (ISR) are replicas for a partition that stay in-sync with the leader.</p>
+<p>The <code>replica.lag.max.messages</code> defines how many messages can a replica be lagging behind the leader to be considered in-sync.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/in-sync-replicas-example.png" alt="in-sync-replicas-example" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Committed offset is 13</li>
+<li>Two new messages are written to the leader, but not committed yet.</li>
+<li>A message is committed once all replicas in the ISR have synchronized that message</li>
+<li>Replica 2 and 3 have fully caught up with leader, hence, they are in ISR</li>
+<li>Replica 4 has lagged behind, hence, is removed from ISR for now</li>
+</ul>
+<p>ISR reflects a trade-off between performance and durability.
+ * In order for producers not to lose messages, all replicas should be in sync before sending an acknowledgment
+ * But a slow replica will cause the whole partition to become unavailable</p>
+<p>Acknowledgment handling is configurable.</p>
+<p><code>ACK=all</code> means that all replicas in ISR have to sync a message. Message sending is slow, but message durability is highest.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/ack-all.png" alt="ack-all" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p><code>ACK=1</code> means that producer receives acknowledgment once leader receives the message. Message sending is fast, but message durability is low.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/ack-1.png" alt="ack-1" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p><code>ACK=0</code> means that producer sends messages without waiting for any acknowledgment from leader. Message sending is fastest, message durability is lowest.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/ack-0.png" alt="ack-0" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>On the consumer side, we can connect all consumers to the leader for a partition and let them read messages from it:
+ * This makes for the simplest design and easiest operation
+ * Messages in a partition are sent to only one consumer in a group, which limits the connections to the leader replica
+ * The number of connections to leader replica is typically not high as long as the topic is not super hot
+ * We can scale a hot topic by increasing the number of partitions and consumers
+ * In certain scenarios, it might make sense to let a consumer lead from an ISR, eg if they're located in a separate DC</p>
+<p>The ISR list is maintained by the leader who tracks the lag between itself and each replica.</p>
+<h3 id="ch-19-scalability" class="section-heading"><strong>Scalability</strong> <a href="#ch-19-scalability" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Let's evaluate how we can scale different parts of the system.</p>
+<h4 id="ch-19-producer" class="section-heading">Producer <a href="#ch-19-producer" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h4>
+<p>The producer is much smaller than the consumer. Its scalability can easily be achieved by adding/removing new producer instances.</p>
+<h4 id="ch-19-consumer" class="section-heading">Consumer <a href="#ch-19-consumer" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h4>
+<p>Consumer groups are isolated from each other. It is easy to add/remove consumer groups at will.</p>
+<p>Rebalancing help handle the case when consumers are added/removed from a group gracefully.</p>
+<p>Consumer groups are rebalancing help us achieve scalability and fault tolerance.</p>
+<h4 id="ch-19-broker" class="section-heading">Broker <a href="#ch-19-broker" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h4>
+<p>How do brokers handle failure?</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/broker-failure-recovery.png" alt="broker-failure-recovery" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Once a broker fails, there are still enough replicas to avoid partition data loss</li>
+<li>A new leader is elected and the broker coordinator redistributes partitions which were at the failed broker to existing replicas</li>
+<li>Existing replicas pick up the new partitions and act as followers until they're caught up with the leader and become ISR</li>
+</ul>
+<p>Additional considerations to make the broker fault-tolerant:
+ * The minimum number of ISRs balances latency and safety. You can fine-tune it to meet your needs.
+ * If all replicas of a partition are in the same node, then it's a waste of resources. Replicas should be across different brokers.
+ * If all replicas of a partition crash, then the data is lost forever. Spreading replicas across data centers can help, but it adds up a lot of latency. One option is to use <a href="https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=27846330">data mirroring</a> as a work around.</p>
+<p>How do we handle redistribution of replicas when a new broker is added?</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/broker-replica-redistribution.png" alt="broker-replica-redistribution" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>We can temporarily allow more replicas than configured, until new broker catches up</li>
+<li>Once it does, we can remove the partition replica which is no longer needed</li>
+</ul>
+<h4 id="ch-19-partition" class="section-heading">Partition <a href="#ch-19-partition" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h4>
+<p>Whenever a new partition is added, the producer is notified and consumer rebalancing is triggered.</p>
+<p>In terms of data storage, we can only store new messages to the new partition vs. trying to copy all old ones:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/partition-exmaple.png" alt="partition-example" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Decreasing the number of partitions is more involved:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/partition-decrease.png" alt="partition-decrease" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Once a partition is decommissioned, new messages are only received by remaining partitions</li>
+<li>The decommissioned partition isn't removed immediately as messages can still be consumed from it</li>
+<li>Once a pre-configured retention period passes, do we truncate the data and storage space is freed up</li>
+<li>During the transitional period, producers only send messages to active partitions, but consumers read from all</li>
+<li>Once retention period expires, consumers are rebalanced</li>
+</ul>
+<h3 id="ch-19-data-delivery-semantics" class="section-heading"><strong>Data delivery semantics</strong> <a href="#ch-19-data-delivery-semantics" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Let's discuss different delivery semantics.</p>
+<h4 id="ch-19-at-most-once" class="section-heading">At-most once <a href="#ch-19-at-most-once" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h4>
+<p>With this guarantee, messages are delivered not more than once and could not be delivered at all.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/at-most-once.png" alt="at-most-once" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Producer sends a message asynchronously to a topic. If message delivery fails, there is no retry.</li>
+<li>Consumer fetches message and immediately commits offset. If consumer crashes before processing the message, the message will not be processed.</li>
+</ul>
+<h4 id="ch-19-at-least-once" class="section-heading">At-least once <a href="#ch-19-at-least-once" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h4>
+<p>A message can be sent more than once and no message should be left unprocessed.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/at-least-once.png" alt="at-least-once" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Producer sends message with <code>ack=1</code> or <code>ack=all</code>. If there is any issue, it will keep retrying.</li>
+<li>Consumer fetches the message and consumes the offset only after it's done processing it.</li>
+<li>It is possible for a message to be delivered more than once if eg consumer crashes before committing offset but after processing it.</li>
+<li>This is why, this is good for use-cases where data duplication is acceptable or deduplication is possible.</li>
+</ul>
+<h4 id="ch-19-exactly-once" class="section-heading">Exactly once <a href="#ch-19-exactly-once" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h4>
+<p>Extremely costly to implement for the system, albeit it's the friendliest guarantee to users:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/exactly-once.png" alt="exactly-once" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<h3 id="ch-19-advanced-features" class="section-heading"><strong>Advanced features</strong> <a href="#ch-19-advanced-features" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Let's discuss some advanced features, we might discuss in the interview.</p>
+<h4 id="ch-19-message-filtering" class="section-heading">Message filtering <a href="#ch-19-message-filtering" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h4>
+<p>Some consumers might want to only consume messages of a certain type within a partition.</p>
+<p>This can be achieved by building separate topics for each subset of messages, but this can be costly if systems have too many differing use-cases.
+ * It is a waste of resources to store the same message on different topics
+ * Producer is now tightly coupled to consumers as it changes with each new consumer requirement</p>
+<p>We can resolve this using message filtering.
+ * A naive approach would be to do the filtering on the consumer-side, but that introduces unnecessary consumer traffic
+ * Alternatively, messages can have tags attached to them and consumers can specify which tags they're subscribed to
+ * Filtering could also be done via the message payloads but that can be challenging and unsafe for encrypted/serialized messages
+ * For more complex mathematical formulaes, the broker could implement a grammar parser or script executor, but that can be heavyweight for the message queue</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/message-filtering.png" alt="message-filtering" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<h4 id="ch-19-delayed-messages-scheduled-messages" class="section-heading">Delayed messages &amp; scheduled messages <a href="#ch-19-delayed-messages-scheduled-messages" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h4>
+<p>For some use-cases, we might want to delay or schedule message delivery. 
+For example, we might submit a payment verification check for 30m from now, which triggers the consumer to see if a payment was successful.</p>
+<p>This can be achieved by sending messages to temporary storage in the broker and moving the message to the partition at the right time:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/delayed-message-implementation.png" alt="delayed-message-implementation" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>The temporary storage can be one or more special message topics</li>
+<li>The timing function can be achieved using dedicated delay queues or a <a href="http://www.cs.columbia.edu/~nahum/w6998/papers/sosp87-timing-wheels.pdf">hierarchical time wheel</a></li>
+</ul>
+<hr />
+<h2 id="ch-19-step-4-wrap-up" class="section-heading">Step 4: Wrap Up <a href="#ch-19-step-4-wrap-up" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>Additional talking points:
+- <strong>Protocol of communication</strong>: Important considerations - support all use-cases and high data volume, as well as verify message integrity. Popular protocols - AMQP and Kafka protocol.
+- <strong>Retry consumption</strong>: if we can't process a message immediately, we could send it to a dedicated retry topic to be attempted later.
+- <strong>Historical data archive</strong>: old messages can be backed up in high-capacity storages such as HDFS or object storage (eg S3).</p>
+    </div>
+    
+    <div style="margin-top:3rem;text-align:center;">
+      <a href="../index.html#ch-19" class="back-btn" style="padding:0.75rem 1.5rem;font-size:1rem;">&larr; Return to All System Design Chapters</a>
+    </div>
+  </div>
+
+  <!-- Image Diagram Lightbox Modal -->
+  <div class="lightbox-overlay" id="lightbox-modal" onclick="if(event.target===this) closeLightbox()">
+    <div class="lightbox-caption" id="lightbox-caption">Architecture Diagram</div>
+    <div class="lightbox-img-stage" id="lightbox-stage">
+      <img id="lightbox-active-img" class="lightbox-img" src="" alt="Enlarged Diagram">
+    </div>
+    <div class="lightbox-toolbar">
+      <button class="lightbox-btn" onclick="zoomLightbox(0.25)">Zoom In (+)</button>
+      <button class="lightbox-btn" onclick="zoomLightbox(-0.25)">Zoom Out (-)</button>
+      <button class="lightbox-btn" onclick="resetLightbox()">Reset (1:1)</button>
+      <button class="lightbox-btn" onclick="closeLightbox()">Close (Esc)</button>
+    </div>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    }
+    function copyCode(btn) {
+      const wrapper = btn.closest('.code-wrapper');
+      const codeEl = wrapper.querySelector('pre code');
+      if (codeEl) {
+        navigator.clipboard.writeText(codeEl.innerText);
+        const span = btn.querySelector('span');
+        const orig = span.textContent;
+        span.textContent = 'Copied!';
+        setTimeout(() => span.textContent = orig, 1800);
+      }
+    }
+    let lightboxScale = 1;
+    function openLightbox(img) {
+      document.getElementById('lightbox-active-img').src = img.src;
+      document.getElementById('lightbox-modal').classList.add('open');
+      lightboxScale = 1;
+      updateTransform();
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox-modal').classList.remove('open');
+    }
+    function zoomLightbox(delta) {
+      lightboxScale = Math.max(0.5, Math.min(5, lightboxScale + delta));
+      updateTransform();
+    }
+    function resetLightbox() {
+      lightboxScale = 1;
+      updateTransform();
+    }
+    function updateTransform() {
+      document.getElementById('lightbox-active-img').style.transform = `scale(${lightboxScale})`;
+    }
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeLightbox();
+    });
+  </script>
+</body>
+</html>

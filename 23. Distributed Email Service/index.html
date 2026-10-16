@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-font-size="md">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 23 - Distributed Email Service — System Design Notes</title>
+  <style>
+
+:root {
+  --bg-body: #0b0f19;
+  --bg-sidebar: #0f172a;
+  --bg-header: rgba(15, 23, 42, 0.85);
+  --bg-card: #131d35;
+  --bg-card-hover: #1e293b;
+  --bg-input: #1e293b;
+  --bg-code: #070b14;
+  --border-subtle: #1e293b;
+  --border-card: #27354f;
+  --text-main: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #38bdf8;
+  --accent-hover: #0284c7;
+  --accent-glow: rgba(56, 189, 248, 0.18);
+  --accent-soft: rgba(56, 189, 248, 0.12);
+  --success: #10b981;
+  --success-glow: rgba(16, 185, 129, 0.15);
+  --code-header-bg: #0d1527;
+  --table-border: #27354f;
+  --table-head-bg: #1e293b;
+  --table-row-alt: #162036;
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.6);
+  --font-base: 16px;
+  --sidebar-width: 320px;
+  --toc-width: 260px;
+}
+
+[data-theme="light"] {
+  --bg-body: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-header: rgba(255, 255, 255, 0.88);
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-input: #f1f5f9;
+  --bg-code: #0f172a;
+  --border-subtle: #e2e8f0;
+  --border-card: #e2e8f0;
+  --text-main: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent: #0284c7;
+  --accent-hover: #0369a1;
+  --accent-glow: rgba(2, 132, 199, 0.15);
+  --accent-soft: rgba(2, 132, 199, 0.08);
+  --success: #059669;
+  --success-glow: rgba(5, 150, 105, 0.15);
+  --code-header-bg: #1e293b;
+  --table-border: #e2e8f0;
+  --table-head-bg: #f1f5f9;
+  --table-row-alt: #f8fafc;
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.12);
+}
+
+[data-font-size="sm"] { --font-base: 15px; }
+[data-font-size="md"] { --font-base: 16px; }
+[data-font-size="lg"] { --font-base: 18px; }
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: var(--font-base);
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg-body);
+  color: var(--text-main);
+  line-height: 1.7;
+  overflow-x: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-card);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Layout */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Left Sidebar */
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  transition: transform 0.25s ease;
+}
+
+.sidebar-header {
+  padding: 1.25rem 1.25rem 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.5rem;
+}
+
+.brand-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.brand-title svg {
+  color: var(--accent);
+}
+
+.brand-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+/* Sidebar Search & Filter */
+.sidebar-search-box {
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.filter-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.filter-input-wrap svg {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.filter-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.2rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.filter-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.global-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.global-search-btn:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+
+.kbd-badge {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+/* Sidebar Progress */
+.progress-card {
+  padding: 0.75rem 1.25rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.4rem;
+}
+
+.progress-track {
+  width: 100%;
+  height: 6px;
+  background: var(--border-subtle);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* Navigation List */
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.nav-chapter-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: all 0.18s ease;
+  position: relative;
+  border-left: 3px solid transparent;
+}
+
+.nav-chapter-item:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+}
+
+.nav-chapter-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  border-left-color: var(--accent);
+}
+
+.nav-check-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.nav-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.nav-checkbox.checked {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.nav-checkbox.checked::after {
+  content: '✓';
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.nav-num {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  min-width: 24px;
+  text-align: center;
+  font-family: monospace;
+}
+
+.nav-chapter-item.active .nav-num {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.nav-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.nav-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+}
+
+.footer-btn {
+  background: none;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.footer-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--border-card);
+}
+
+/* Main Content Area */
+.main-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top Sticky Header */
+.top-header {
+  position: sticky;
+  top: 0;
+  height: 56px;
+  background: var(--bg-header);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  z-index: 90;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.menu-toggle-btn {
+  display: none;
+  background: none;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  padding: 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.breadcrumbs {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.breadcrumbs strong {
+  color: var(--text-main);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.icon-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 0.45rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
+/* Content Container */
+.content-layout {
+  display: flex;
+  flex: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.content-article-area {
+  flex: 1;
+  min-width: 0;
+  padding: 2.5rem 3rem;
+  max-width: 900px;
+}
+
+/* Chapter Panes */
+.chapter-pane {
+  display: none;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+.chapter-pane.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Chapter Header Card */
+.chapter-header-card {
+  padding-bottom: 2rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ch-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.ch-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+}
+
+.mark-done-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mark-done-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
+.mark-done-btn.is-read {
+  background: var(--success);
+  border-color: var(--success);
+  color: #ffffff;
+}
+
+.chapter-main-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--text-main);
+  margin-bottom: 1rem;
+  letter-spacing: -0.03em;
+}
+
+.ch-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Chapter Body Typography */
+.chapter-body {
+  color: var(--text-main);
+  font-size: 1rem;
+}
+
+.chapter-body h1 {
+  display: none; /* Already rendered in header card */
+}
+
+.chapter-body h2 {
+  font-size: 1.55rem;
+  font-weight: 750;
+  color: var(--text-main);
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  scroll-margin-top: 70px;
+  position: relative;
+}
+
+.chapter-body h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-top: 1.85rem;
+  margin-bottom: 0.75rem;
+  scroll-margin-top: 70px;
+  position: relative;
+}
+
+.chapter-body h4 {
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--text-secondary);
+  margin-top: 1.35rem;
+  margin-bottom: 0.5rem;
+  scroll-margin-top: 70px;
+}
+
+.heading-anchor {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.85em;
+  opacity: 0;
+  margin-left: 0.4rem;
+  transition: opacity 0.15s;
+}
+
+.chapter-body h2:hover .heading-anchor,
+.chapter-body h3:hover .heading-anchor {
+  opacity: 1;
+}
+
+.chapter-body p {
+  margin-bottom: 1.2rem;
+  color: var(--text-main);
+}
+
+.chapter-body ul, .chapter-body ol {
+  margin-bottom: 1.2rem;
+  padding-left: 1.6rem;
+  color: var(--text-main);
+}
+
+.chapter-body li {
+  margin-bottom: 0.45rem;
+}
+
+.chapter-body hr {
+  border: none;
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 2.5rem 0;
+}
+
+.chapter-body blockquote {
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 0.85rem 1.25rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1.5rem 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.chapter-body a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--accent);
+  transition: all 0.2s;
+}
+
+.chapter-body a:hover {
+  color: var(--accent-hover);
+  border-bottom-style: solid;
+}
+
+/* Inline Code */
+.chapter-body code {
+  font-family: "JetBrains Mono", Consolas, "Fira Code", Monaco, monospace;
+  font-size: 0.88em;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--accent);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+/* Code Blocks */
+.code-wrapper {
+  margin: 1.5rem 0;
+  background: var(--bg-code);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.85rem;
+  background: var(--code-header-bg);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.code-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: monospace;
+}
+
+.copy-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s;
+}
+
+.copy-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
+.code-wrapper pre {
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #e2e8f0;
+}
+
+.code-wrapper pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* Tables */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  border: 1px solid var(--table-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.table-container table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.table-container th {
+  background: var(--table-head-bg);
+  color: var(--text-main);
+  font-weight: 700;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--table-border);
+  border-right: 1px solid var(--table-border);
+}
+
+.table-container td {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--table-border);
+  border-right: 1px solid var(--table-border);
+  color: var(--text-secondary);
+}
+
+.table-container th:last-child,
+.table-container td:last-child {
+  border-right: none;
+}
+
+.table-container tr:nth-child(even) {
+  background: var(--table-row-alt);
+}
+
+.table-container tr:hover td {
+  background: var(--accent-soft);
+  color: var(--text-main);
+}
+
+/* Diagrams and Images */
+.diagram-wrapper {
+  margin: 2rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.25s ease;
+}
+
+.diagram-wrapper:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+.diagram-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  cursor: zoom-in;
+  transition: transform 0.2s ease;
+  display: block;
+}
+
+.diagram-hint {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  user-select: none;
+}
+
+.diagram-wrapper:hover .diagram-hint {
+  color: var(--accent);
+}
+
+/* Chapter Navigation Footer */
+.chapter-nav-footer {
+  margin-top: 3.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.footer-nav-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.footer-nav-card:hover {
+  border-color: var(--accent);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.footer-nav-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.footer-nav-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.footer-nav-card.next-card {
+  text-align: right;
+}
+
+/* Right TOC Rail */
+.right-toc-rail {
+  width: var(--toc-width);
+  min-width: var(--toc-width);
+  position: sticky;
+  top: 56px;
+  height: calc(100vh - 56px);
+  overflow-y: auto;
+  padding: 2.5rem 1.25rem 2.5rem 0.5rem;
+}
+
+.toc-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 1.15rem;
+}
+
+.toc-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.toc-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.toc-link {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  display: block;
+  line-height: 1.35;
+  transition: color 0.15s;
+}
+
+.toc-link:hover {
+  color: var(--accent);
+}
+
+.toc-link.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.toc-item.level-3 {
+  padding-left: 0.85rem;
+  font-size: 0.76rem;
+}
+
+/* Search Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10vh;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.search-modal {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 640px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 75vh;
+  animation: modalScale 0.18s ease-out;
+}
+
+@keyframes modalScale {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.search-modal-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.search-modal-header svg {
+  color: var(--accent);
+}
+
+.search-modal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-size: 1.05rem;
+  outline: none;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.modal-close-btn:hover {
+  color: var(--text-main);
+}
+
+.search-results-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.search-result-card {
+  padding: 0.75rem 0.85rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.search-result-card:hover,
+.search-result-card.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.sr-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.sr-ch-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.sr-sec-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0.25rem;
+}
+
+.sr-snippet {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.search-highlight {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  padding: 0 0.15rem;
+  border-radius: 2px;
+}
+
+.search-modal-footer {
+  padding: 0.65rem 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Lightbox Modal */
+.lightbox-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-overlay.open {
+  display: flex;
+}
+
+.lightbox-img-stage {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: grab;
+  position: relative;
+}
+
+.lightbox-img-stage.grabbing {
+  cursor: grabbing;
+}
+
+.lightbox-img {
+  max-width: 90vw;
+  max-height: 82vh;
+  object-fit: contain;
+  transition: transform 0.1s ease-out;
+  user-select: none;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+}
+
+.lightbox-toolbar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  border-radius: 999px;
+  padding: 0 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.lightbox-btn {
+  background: none;
+  border: none;
+  color: #f1f5f9;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.2s;
+}
+
+.lightbox-btn:hover {
+  background: #334155;
+  color: var(--accent);
+}
+
+.lightbox-caption {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* Media Queries */
+@media (max-width: 1240px) {
+  .right-toc-rail {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .menu-toggle-btn {
+    display: inline-flex;
+  }
+  .content-article-area {
+    padding: 1.5rem 1.25rem;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .sidebar, .top-header, .right-toc-rail, .chapter-nav-footer, .mark-done-btn, .diagram-hint {
+    display: none !important;
+  }
+  body, .app-container, .main-wrapper, .content-article-area {
+    background: #ffffff !important;
+    color: #000000 !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .chapter-pane {
+    display: block !important;
+    page-break-after: always;
+  }
+}
+
+  .standalone-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+  }
+  .standalone-top-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 0.4rem 0.8rem;
+    background: var(--accent-soft);
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .back-btn:hover {
+    background: var(--accent-glow);
+  }
+  </style>
+</head>
+<body>
+  <div class="standalone-container">
+    <div class="standalone-top-nav">
+      <a href="../index.html#ch-23" class="back-btn">&larr; Back to Master Index (All 28 Chapters)</a>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="icon-btn" onclick="toggleTheme()" title="Toggle Dark/Light theme">🌓 Theme</button>
+        <button class="icon-btn" onclick="window.print()" title="Print Chapter">🖨️ Print</button>
+      </div>
+    </div>
+    
+    <header class="chapter-header-card">
+      <span class="ch-pill">Chapter 23</span>
+      <h1 class="chapter-main-title">Chapter 23 - Distributed Email Service</h1>
+      <div class="ch-meta-row">
+        <span class="meta-item">⏱️ 12 min read</span>
+        <span class="meta-item">📝 2,447 words</span>
+        <span class="meta-item">🖼️ 14 diagrams</span>
+      </div>
+    </header>
+
+    <div class="chapter-body">
+      <h1 id="ch-23-chapter-23-distributed-email-service">Chapter 23: Distributed Email Service</h1>
+<h2 id="ch-23-introduction" class="section-heading">Introduction <a href="#ch-23-introduction" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>We'll design a <strong>distributed email service</strong>, similar to <strong>Gmail</strong> in this chapter.</p>
+<p>In 2020, <strong>Gmail</strong> had 1.8bil active users, while <strong>Outlook</strong> had 400mil users worldwide.</p>
+<hr />
+<h2 id="ch-23-step-1-understand-the-problem-and-establish-design-scope" class="section-heading">Step 1: Understand the Problem and Establish Design Scope <a href="#ch-23-step-1-understand-the-problem-and-establish-design-scope" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<ul>
+<li>C: How many users use the system?</li>
+<li>I: 1bil users</li>
+<li>C: I think following features are important - auth, send/receive email, fetch email, filter emails, search email, anti-spam protection.</li>
+<li>I: Good list. Don't worry about auth for now.</li>
+<li>C: How do users connect \w email servers?</li>
+<li>I: Typically, email clients connect via SMTP, POP, IMAP, but we'll use HTTP for this problem.</li>
+<li>C: Can emails have attachments?</li>
+<li>I: Yes</li>
+</ul>
+<h3 id="ch-23-non-functional-requirements" class="section-heading"><strong>Non-functional requirements</strong> <a href="#ch-23-non-functional-requirements" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<ul>
+<li><strong>Reliability</strong> - we shouldn't lose data</li>
+<li><strong>Availability</strong> - We should use replication to prevent single points of failure. We should also tolerate partial system failures.</li>
+<li><strong>Scalability</strong> - As userbase grows, our system should be able to handle them.</li>
+<li><strong>Flexibility and extensibility</strong> - system should be flexible and easy to extend with new features. One of the reasons we chose HTTP over SMTP/other mail protocols.</li>
+</ul>
+<h3 id="ch-23-back-of-the-envelope-estimation" class="section-heading"><strong>Back-of-the-envelope estimation</strong> <a href="#ch-23-back-of-the-envelope-estimation" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<ul>
+<li><strong>1bil users</strong></li>
+<li>Assuming one person sends 10 emails per day -&gt; <strong>100k emails per second</strong>.</li>
+<li>Assuming one person receives 40 emails per day and each email on average has 50kb metadata -&gt; <strong>730pb storage per year</strong>.</li>
+<li>Assuming 20% of emails have storage attachments and average size is 500kb -&gt; <strong>1,460pb per year</strong>.</li>
+</ul>
+<hr />
+<h2 id="ch-23-step-2-propose-high-level-design-and-get-buy-in" class="section-heading">Step 2: Propose High-Level Design and Get Buy-In <a href="#ch-23-step-2-propose-high-level-design-and-get-buy-in" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<h3 id="ch-23-email-knowledge-101" class="section-heading"><strong>Email knowledge 101</strong> <a href="#ch-23-email-knowledge-101" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>There are various protocols used for sending and receiving emails:
+- <strong>SMTP</strong> - standard protocol for sending emails from one server to another.
+- <strong>POP</strong> - standard protocol for receiving and downloading emails from a remote mail server to a local client. Once retrieved, emails are deleted from remote server.
+- <strong>IMAP</strong> - similar to POP, it is used for receiving and downloading emails from a remote server, but it keeps the emails on the server-side.
+- <strong>HTTPS</strong> - not technically an email protocol, but it can be used for web-based email clients.</p>
+<p>Apart from the mailing protocol, there are some DNS records we need to configure for our email server - the MX records:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/dns-lookup.png" alt="dns-lookup" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Email attachments are sent base64-encoded and there is usually a size limit of 25mb on most mail services.
+This is configurable and varies from individual to corporate accounts.</p>
+<h3 id="ch-23-traditional-mail-servers" class="section-heading"><strong>Traditional mail servers</strong> <a href="#ch-23-traditional-mail-servers" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Traditional mail servers work well when there are a limited number of users, connected to a single server.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/traditional-mail-server.png" alt="traditional-mail-server" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Alice logs into her Outlook email and presses "send". Email is sent to Outlook mail server. Communication is via SMTP.</li>
+<li>Outlook server queries DNS to find MX record for gmail.com and transfers the email to their servers. Communication is via SMTP.</li>
+<li>Bob fetches emails from his gmail server via IMAP/POP.</li>
+</ul>
+<p>In traditional mail servers, emails were stored on the local file system. Every email was a separate file.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/local-dir-storage.png" alt="local-dir-storage" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>As the scale grew, disk I/O became a bottleneck. Also, it doesn't satisfy our high availability and reliability requirements.
+Disks can be damaged and server can go down.</p>
+<h3 id="ch-23-distributed-mail-servers" class="section-heading"><strong>Distributed mail servers</strong> <a href="#ch-23-distributed-mail-servers" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Distributed mail servers are designed to support modern use-cases and solve modern scalability issues.</p>
+<p>These servers can still support IMAP/POP for native email clients and SMTP for mail exchange across servers.</p>
+<p>But for rich web-based mail clients, a RESTful API over HTTP is typically used.</p>
+<p>Example APIs:
+- <code>POST /v1/messages</code> - sends a message to recipients in To, Cc, Bcc headers.
+- <code>GET /v1/folders</code> - returns all folders of an email account</p>
+<p>Example response:</p>
+<div class="code-wrapper">
+  <div class="code-header">
+    <span class="code-badge">CODE</span>
+    <button class="copy-btn" onclick="copyCode(this)" title="Copy code to clipboard">
+      <svg class="copy-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      <span>Copy</span>
+    </button>
+  </div>
+  <pre><code>[{id: string        Unique folder identifier.
+  name: string      Name of the folder.
+                    According to RFC6154 [9], the default folders can be one of
+                    the following: All, Archive, Drafts, Flagged, Junk, Sent,
+                    and Trash.
+  user_id: string   Reference to the account owner
+}]
+</code></pre>
+</div>
+<ul>
+<li><code>GET /v1/folders/{:folder_id}/messages</code> - returns all messages under a folder \w pagination</li>
+<li><code>GET /v1/messages/{:message_id}</code> - get all information about a particular message</li>
+</ul>
+<p>Example response:</p>
+<div class="code-wrapper">
+  <div class="code-header">
+    <span class="code-badge">CODE</span>
+    <button class="copy-btn" onclick="copyCode(this)" title="Copy code to clipboard">
+      <svg class="copy-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      <span>Copy</span>
+    </button>
+  </div>
+  <pre><code>{
+  user_id: string                      // Reference to the account owner.
+  from: {name: string, email: string}  // &lt;name, email&gt; pair of the sender.
+  to: [{name: string, email: string}]  // A list of &lt;name, email&gt; paris
+  subject: string                      // Subject of an email
+  body: string                         //  Message body
+  is_read: boolean                     //  Indicate if a message is read or not.
+}
+</code></pre>
+</div>
+<p>Here's the high-level design of the distributed mail server:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/high-level-architecture.png" alt="high-level-architecture" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li><strong>Webmail</strong> - users use web browsers to send/receive emails</li>
+<li><strong>Web servers</strong> - public-facing request/response services used to manage login, signup, user profile, etc.</li>
+<li><strong>Real-time servers</strong> - Used for pushing new email updates to clients in real-time. We use websockets for real-time communication but fallback to long-polling for older browsers that don't support them.</li>
+<li><strong>Metadata db</strong> - stores email metadata such as subject, body, from, to, etc.</li>
+<li><strong>Attachment store</strong> - Object store (eg Amazon S3), suitable for storing large files.</li>
+<li><strong>Distributed cache</strong> - We can cache recent emails in Redis to improve UX.</li>
+<li><strong>Search store</strong> - distributed document store, used for supporting full-text searches.</li>
+</ul>
+<p>Here's what the email sending flow looks like:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/email-sending-flow.png" alt="email-sending-flow" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>User writes an email and presses "send". Email is sent to load balancer.</li>
+<li>Load balancer rate limits excessive mail sends and routes to one of the web servers.</li>
+<li>Web servers do basic email validation (eg email size) and short-circuits outbound flow if domain is same as sender. But does spam check first.</li>
+<li>If basic validation passes, email is sent to message queue (attachment is referenced from object store)</li>
+<li>If basic validation fails, email is sent to error queue</li>
+<li>SMTP outgoing workers pull messages from outgoing queue, do spam/virus checks and route to destination mail server.</li>
+<li>Email is stored in the "Sent Emails" folder</li>
+</ul>
+<p>We need to also monitor size of outgoing message queue. Growing too large might indicate a problem:
+- Recipient's mail server is unavailable. We can retry sending the email at a later time using exponential backoff.
+- Not enough consumers to handle the load, we might have to scale the consumers.</p>
+<p>Here's the email receiving flow:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/email-receiving-flkow.png" alt="email-receiving-flow" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Incoming emails arrive at the SMTP load balancer. Mails are distributed to SMTP servers, where mail acceptance policy is done (eg invalid emails are directly discarded).</li>
+<li>If attachment of email is too large, we can put it in object store (s3).</li>
+<li>Mail processing workers do preliminary checks, after which mails are forwarded to storage, cache, object store and real-time servers.</li>
+<li>Offline users get their new emails once they come back online via HTTP API.</li>
+</ul>
+<hr />
+<h2 id="ch-23-step-3-design-deep-dive" class="section-heading">Step 3: Design Deep Dive <a href="#ch-23-step-3-design-deep-dive" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>Let's now go deeper into some of the components.</p>
+<h3 id="ch-23-metadata-database" class="section-heading"><strong>Metadata database</strong> <a href="#ch-23-metadata-database" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Here are some of the characteristics of email metadata:
+- headers are usually small and frequently accessed
+- Body size ranges from small to big, but is typically read once
+- Most mail operations are isolated to a single user - eg fetching email, marking as read, searching.
+- Data recency impacts data usage. Users typically read only recent emails
+- Data has high-reliability requirements. Data loss is unacceptable.</p>
+<p>At gmail/outlook scale, the database is typically custom made to reduce input/output operations per second (IOPS).</p>
+<p>Let's consider what database options we have:
+- <strong>Relational database</strong> - we can build indexes for headers and body, but these DBs are typically optimized for small chunks of data.
+- <strong>Distributed object store</strong> - this can be a good option for backup storage, but can't efficiently support searching/marking as read/etc.
+- <strong>NoSQL</strong> - Google BigTable is used by gmail, but it's not open-sourced.</p>
+<p>Based on above analysis, very few existing solutions seems to fit our needs perfectly.
+In an interview setting, it's infeasible to design a new distributed database solution, but important to mention characteristics:
+- Single column can be a single-digit MB
+- Strong data consistency
+- Designed to reduce disk I/O
+- Highly available and fault tolerant
+- Should be easy to create incremental backups</p>
+<p>In order to partition the data, we can use the <code>user_id</code> as a partition key, so that one user's data is stored on a single shard.
+This prohibits us from sharing an email with multiple users, but this is not a requirement for this interview.</p>
+<p>Let's define the tables:
+- Primary key consists of partition key (data distribution) and clustering key (sorting data)
+- Queries we need to support - get all folders for a user, display all emails for a folder, create/get/delete an email, fetch read/unread email, get conversation threads (bonus)</p>
+<p>Legend for tables to follow:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/legend.png" alt="legend" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Here is the folders table:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/folders-table.png" alt="folders-table" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>emails table:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/emails-table.png" alt="emails-table" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>email_id is timeuuid which allows sorting based on timestamp when email was created</li>
+</ul>
+<p>Attachments are stored in a separate table, identified by filename:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/attachments.png" alt="attachments" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Supporting fetchin read/unread emails is easy in a traditional relational database, but not in Cassandra, since filtering on non-partition/clustering key is prohibited.
+One workaround to fetch all emails in a folder and filter in-memory, but that doesn't work well for a big-enough application.</p>
+<p>What we can do is denormalize the emails table into read/unread emails tables:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/read-unread-emails.png" alt="read-unread-emails" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>In order to support conversation threads, we can include some headers, which mail clients interpret and use to reconstruct a conversation thread:</p>
+<div class="code-wrapper">
+  <div class="code-header">
+    <span class="code-badge">CODE</span>
+    <button class="copy-btn" onclick="copyCode(this)" title="Copy code to clipboard">
+      <svg class="copy-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      <span>Copy</span>
+    </button>
+  </div>
+  <pre><code>{
+  &quot;headers&quot; {
+     &quot;Message-Id&quot;: &quot;&lt;7BA04B2A-430C-4D12-8B57-862103C34501@gmail.com&gt;&quot;,
+     &quot;In-Reply-To&quot;: &quot;&lt;CAEWTXuPfN=LzECjDJtgY9Vu03kgFvJnJUSHTt6TW@gmail.com&gt;&quot;,
+     &quot;References&quot;: [&quot;&lt;7BA04B2A-430C-4D12-8B57-862103C34501@gmail.com&gt;&quot;]
+  }
+}
+</code></pre>
+</div>
+<p>Finally, we'll trade availability for consistency for our distributed database, since it is a hard requirement for this problem.</p>
+<p>Hence, in the event of a failover or network parititon, sync/update actions will be briefly unavailable to impacted users.</p>
+<h3 id="ch-23-email-deliverability" class="section-heading"><strong>Email deliverability</strong> <a href="#ch-23-email-deliverability" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>It is easy to setup a server to send emails, but getting the email to a receiver's inbox is hard, due to spam-protection algorithms.</p>
+<p>If we just setup a new mail server and start sending mails through it, our emails will probably end up in the spam folder.</p>
+<p>Here's what we can do to prevent that:
+- <strong>Dedicated IPs</strong> - use dedicated IPs for sending emails, otherwise, recipient servers will not trust you.
+- <strong>Classify emails</strong> - avoid sending marketing emails from the same servers to prevent more important email to be classified as spam
+- <strong>Warm up your IP address</strong> slowly to build a good reputation with big email providers. It takes 2 to 6 weeks to warm up a new IP
+- <strong>Ban spammers</strong> quickly to not deteriorate your reputation
+- <strong>Feedback processing</strong> - setup a feedback loop with ISPs to keep track of complaint rate and ban spam accounts quickly.
+- <strong>Email authentication</strong> - use common techniques to combat phishing such as Sender Policy Framework, DomainKeys Identified Mail, etc.</p>
+<p>You don't need to remember all of this. Just know that building a good mail server requires a lot of domain knowledge.</p>
+<h3 id="ch-23-search" class="section-heading"><strong>Search</strong> <a href="#ch-23-search" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Searching includes doing a full-text search based on email contents or more advanced queries based on from, to, subject, unread, etc filters.</p>
+<p>One characteristic of email search is that it is local to the user and it has more writes than reads, because we need to re-index it on each operation, but users rarely use the search tab.</p>
+<p>Let's compare google search with email search:</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th></th>
+<th>Scope</th>
+<th>Sorting</th>
+<th>Accuracy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Google search</td>
+<td>The whole internet</td>
+<td>Sort by relevance</td>
+<td>Indexing takes some time, so not instant results.</td>
+</tr>
+<tr>
+<td>Email search</td>
+<td>User's own email box</td>
+<td>Sort by attributes eg time, date, etc</td>
+<td>Indexing should be quick and results accurate.</td>
+</tr>
+</tbody>
+</table></div>
+<p>To achieve this search functionality, one option is to use an Elasticsearch cluster. We can use <code>user_id</code> as the partition key to group data under the same node:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/elasticsearch.png" alt="elasticsearch" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Mutating operations are async via Kafka in order to decouple services from the reindexing flow.
+Actually searching for data happens synchronously.</p>
+<p>Elasticsearch is one of the most popular search-engine databases and supports full-text search for emails very well.</p>
+<p>Alternatively, we can attempt to develop our own custom search solution to meet our specific requirements.</p>
+<p>Designing such a system is out of scope. One of the core challenges when building it is to optimize it for write-heavy workloads.</p>
+<p>To achieve that, we can use Log-Structured Merge-Trees (LSM) to structure the index data on disk. Write path is optimized for sequential writes only.
+This technique is used in Cassandra, BigTable and RocksDB.</p>
+<p>Its core idea is to store data in-memory until a predefined threshold is reached, after which it is merged in the next layer (disk):</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/lsm-tree.png" alt="lsm-tree" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Main trade-offs between the two approaches:
+- Elasticsearch scales to some extent, whereas a custom search engine can be fine-tuned for the email use-case, allowing it to scale further.
+- Elasticsearch is a separate service we need to maintain, alongside the metadata store. A custom solution can be the datastore itself.
+- Elasticsearch is an off-the-shelf solution, whereas the custom search engine would require significant engineering effort to build.</p>
+<h3 id="ch-23-scalability-and-availability" class="section-heading"><strong>Scalability and availability</strong> <a href="#ch-23-scalability-and-availability" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Since individual user operations don't collide with other users, most components can be independently scaled.</p>
+<p>To ensure high availability, we can also use a multi-DC setup with leader-folower failover in case of failures:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/multi-dc-example.png" alt="multi-dc-example" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<hr />
+<h2 id="ch-23-step-4-wrap-up" class="section-heading">Step 4: Wrap Up <a href="#ch-23-step-4-wrap-up" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>Additional talking points:
+- <strong>Fault tolerance</strong> - Many parts of the system could fail. It is worthwhile how we'd handle node failures.
+- <strong>Compliance</strong> - PII needs to be stored in a reasonable way, given Europe's GDPR laws.
+- <strong>Security</strong> - email encryption, phishing protection, safe browsing, etc.
+- <strong>Optimizations</strong> - eg preventing duplication of the same attachments, sent multiple times by different users.</p>
+    </div>
+    
+    <div style="margin-top:3rem;text-align:center;">
+      <a href="../index.html#ch-23" class="back-btn" style="padding:0.75rem 1.5rem;font-size:1rem;">&larr; Return to All System Design Chapters</a>
+    </div>
+  </div>
+
+  <!-- Image Diagram Lightbox Modal -->
+  <div class="lightbox-overlay" id="lightbox-modal" onclick="if(event.target===this) closeLightbox()">
+    <div class="lightbox-caption" id="lightbox-caption">Architecture Diagram</div>
+    <div class="lightbox-img-stage" id="lightbox-stage">
+      <img id="lightbox-active-img" class="lightbox-img" src="" alt="Enlarged Diagram">
+    </div>
+    <div class="lightbox-toolbar">
+      <button class="lightbox-btn" onclick="zoomLightbox(0.25)">Zoom In (+)</button>
+      <button class="lightbox-btn" onclick="zoomLightbox(-0.25)">Zoom Out (-)</button>
+      <button class="lightbox-btn" onclick="resetLightbox()">Reset (1:1)</button>
+      <button class="lightbox-btn" onclick="closeLightbox()">Close (Esc)</button>
+    </div>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    }
+    function copyCode(btn) {
+      const wrapper = btn.closest('.code-wrapper');
+      const codeEl = wrapper.querySelector('pre code');
+      if (codeEl) {
+        navigator.clipboard.writeText(codeEl.innerText);
+        const span = btn.querySelector('span');
+        const orig = span.textContent;
+        span.textContent = 'Copied!';
+        setTimeout(() => span.textContent = orig, 1800);
+      }
+    }
+    let lightboxScale = 1;
+    function openLightbox(img) {
+      document.getElementById('lightbox-active-img').src = img.src;
+      document.getElementById('lightbox-modal').classList.add('open');
+      lightboxScale = 1;
+      updateTransform();
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox-modal').classList.remove('open');
+    }
+    function zoomLightbox(delta) {
+      lightboxScale = Math.max(0.5, Math.min(5, lightboxScale + delta));
+      updateTransform();
+    }
+    function resetLightbox() {
+      lightboxScale = 1;
+      updateTransform();
+    }
+    function updateTransform() {
+      document.getElementById('lightbox-active-img').style.transform = `scale(${lightboxScale})`;
+    }
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeLightbox();
+    });
+  </script>
+</body>
+</html>

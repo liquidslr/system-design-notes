@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-font-size="md">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 20 - Metrics Monitoring and Alerting System — System Design Notes</title>
+  <style>
+
+:root {
+  --bg-body: #0b0f19;
+  --bg-sidebar: #0f172a;
+  --bg-header: rgba(15, 23, 42, 0.85);
+  --bg-card: #131d35;
+  --bg-card-hover: #1e293b;
+  --bg-input: #1e293b;
+  --bg-code: #070b14;
+  --border-subtle: #1e293b;
+  --border-card: #27354f;
+  --text-main: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #38bdf8;
+  --accent-hover: #0284c7;
+  --accent-glow: rgba(56, 189, 248, 0.18);
+  --accent-soft: rgba(56, 189, 248, 0.12);
+  --success: #10b981;
+  --success-glow: rgba(16, 185, 129, 0.15);
+  --code-header-bg: #0d1527;
+  --table-border: #27354f;
+  --table-head-bg: #1e293b;
+  --table-row-alt: #162036;
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.6);
+  --font-base: 16px;
+  --sidebar-width: 320px;
+  --toc-width: 260px;
+}
+
+[data-theme="light"] {
+  --bg-body: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-header: rgba(255, 255, 255, 0.88);
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-input: #f1f5f9;
+  --bg-code: #0f172a;
+  --border-subtle: #e2e8f0;
+  --border-card: #e2e8f0;
+  --text-main: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent: #0284c7;
+  --accent-hover: #0369a1;
+  --accent-glow: rgba(2, 132, 199, 0.15);
+  --accent-soft: rgba(2, 132, 199, 0.08);
+  --success: #059669;
+  --success-glow: rgba(5, 150, 105, 0.15);
+  --code-header-bg: #1e293b;
+  --table-border: #e2e8f0;
+  --table-head-bg: #f1f5f9;
+  --table-row-alt: #f8fafc;
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.12);
+}
+
+[data-font-size="sm"] { --font-base: 15px; }
+[data-font-size="md"] { --font-base: 16px; }
+[data-font-size="lg"] { --font-base: 18px; }
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: var(--font-base);
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg-body);
+  color: var(--text-main);
+  line-height: 1.7;
+  overflow-x: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-card);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Layout */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Left Sidebar */
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  transition: transform 0.25s ease;
+}
+
+.sidebar-header {
+  padding: 1.25rem 1.25rem 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.5rem;
+}
+
+.brand-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.brand-title svg {
+  color: var(--accent);
+}
+
+.brand-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+/* Sidebar Search & Filter */
+.sidebar-search-box {
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.filter-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.filter-input-wrap svg {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.filter-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.2rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.filter-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.global-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.global-search-btn:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+
+.kbd-badge {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+/* Sidebar Progress */
+.progress-card {
+  padding: 0.75rem 1.25rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.4rem;
+}
+
+.progress-track {
+  width: 100%;
+  height: 6px;
+  background: var(--border-subtle);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* Navigation List */
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.nav-chapter-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: all 0.18s ease;
+  position: relative;
+  border-left: 3px solid transparent;
+}
+
+.nav-chapter-item:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+}
+
+.nav-chapter-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  border-left-color: var(--accent);
+}
+
+.nav-check-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.nav-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.nav-checkbox.checked {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.nav-checkbox.checked::after {
+  content: '✓';
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.nav-num {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  min-width: 24px;
+  text-align: center;
+  font-family: monospace;
+}
+
+.nav-chapter-item.active .nav-num {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.nav-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.nav-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+}
+
+.footer-btn {
+  background: none;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.footer-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--border-card);
+}
+
+/* Main Content Area */
+.main-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top Sticky Header */
+.top-header {
+  position: sticky;
+  top: 0;
+  height: 56px;
+  background: var(--bg-header);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  z-index: 90;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.menu-toggle-btn {
+  display: none;
+  background: none;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  padding: 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.breadcrumbs {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.breadcrumbs strong {
+  color: var(--text-main);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.icon-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 0.45rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
+/* Content Container */
+.content-layout {
+  display: flex;
+  flex: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.content-article-area {
+  flex: 1;
+  min-width: 0;
+  padding: 2.5rem 3rem;
+  max-width: 900px;
+}
+
+/* Chapter Panes */
+.chapter-pane {
+  display: none;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+.chapter-pane.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Chapter Header Card */
+.chapter-header-card {
+  padding-bottom: 2rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ch-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.ch-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+}
+
+.mark-done-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mark-done-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
+.mark-done-btn.is-read {
+  background: var(--success);
+  border-color: var(--success);
+  color: #ffffff;
+}
+
+.chapter-main-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--text-main);
+  margin-bottom: 1rem;
+  letter-spacing: -0.03em;
+}
+
+.ch-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Chapter Body Typography */
+.chapter-body {
+  color: var(--text-main);
+  font-size: 1rem;
+}
+
+.chapter-body h1 {
+  display: none; /* Already rendered in header card */
+}
+
+.chapter-body h2 {
+  font-size: 1.55rem;
+  font-weight: 750;
+  color: var(--text-main);
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  scroll-margin-top: 70px;
+  position: relative;
+}
+
+.chapter-body h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-top: 1.85rem;
+  margin-bottom: 0.75rem;
+  scroll-margin-top: 70px;
+  position: relative;
+}
+
+.chapter-body h4 {
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--text-secondary);
+  margin-top: 1.35rem;
+  margin-bottom: 0.5rem;
+  scroll-margin-top: 70px;
+}
+
+.heading-anchor {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.85em;
+  opacity: 0;
+  margin-left: 0.4rem;
+  transition: opacity 0.15s;
+}
+
+.chapter-body h2:hover .heading-anchor,
+.chapter-body h3:hover .heading-anchor {
+  opacity: 1;
+}
+
+.chapter-body p {
+  margin-bottom: 1.2rem;
+  color: var(--text-main);
+}
+
+.chapter-body ul, .chapter-body ol {
+  margin-bottom: 1.2rem;
+  padding-left: 1.6rem;
+  color: var(--text-main);
+}
+
+.chapter-body li {
+  margin-bottom: 0.45rem;
+}
+
+.chapter-body hr {
+  border: none;
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 2.5rem 0;
+}
+
+.chapter-body blockquote {
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 0.85rem 1.25rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1.5rem 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.chapter-body a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--accent);
+  transition: all 0.2s;
+}
+
+.chapter-body a:hover {
+  color: var(--accent-hover);
+  border-bottom-style: solid;
+}
+
+/* Inline Code */
+.chapter-body code {
+  font-family: "JetBrains Mono", Consolas, "Fira Code", Monaco, monospace;
+  font-size: 0.88em;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--accent);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+/* Code Blocks */
+.code-wrapper {
+  margin: 1.5rem 0;
+  background: var(--bg-code);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.85rem;
+  background: var(--code-header-bg);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.code-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: monospace;
+}
+
+.copy-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s;
+}
+
+.copy-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
+.code-wrapper pre {
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #e2e8f0;
+}
+
+.code-wrapper pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* Tables */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  border: 1px solid var(--table-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.table-container table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.table-container th {
+  background: var(--table-head-bg);
+  color: var(--text-main);
+  font-weight: 700;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--table-border);
+  border-right: 1px solid var(--table-border);
+}
+
+.table-container td {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--table-border);
+  border-right: 1px solid var(--table-border);
+  color: var(--text-secondary);
+}
+
+.table-container th:last-child,
+.table-container td:last-child {
+  border-right: none;
+}
+
+.table-container tr:nth-child(even) {
+  background: var(--table-row-alt);
+}
+
+.table-container tr:hover td {
+  background: var(--accent-soft);
+  color: var(--text-main);
+}
+
+/* Diagrams and Images */
+.diagram-wrapper {
+  margin: 2rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.25s ease;
+}
+
+.diagram-wrapper:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+.diagram-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  cursor: zoom-in;
+  transition: transform 0.2s ease;
+  display: block;
+}
+
+.diagram-hint {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  user-select: none;
+}
+
+.diagram-wrapper:hover .diagram-hint {
+  color: var(--accent);
+}
+
+/* Chapter Navigation Footer */
+.chapter-nav-footer {
+  margin-top: 3.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.footer-nav-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.footer-nav-card:hover {
+  border-color: var(--accent);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.footer-nav-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.footer-nav-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.footer-nav-card.next-card {
+  text-align: right;
+}
+
+/* Right TOC Rail */
+.right-toc-rail {
+  width: var(--toc-width);
+  min-width: var(--toc-width);
+  position: sticky;
+  top: 56px;
+  height: calc(100vh - 56px);
+  overflow-y: auto;
+  padding: 2.5rem 1.25rem 2.5rem 0.5rem;
+}
+
+.toc-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 1.15rem;
+}
+
+.toc-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.toc-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.toc-link {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  display: block;
+  line-height: 1.35;
+  transition: color 0.15s;
+}
+
+.toc-link:hover {
+  color: var(--accent);
+}
+
+.toc-link.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.toc-item.level-3 {
+  padding-left: 0.85rem;
+  font-size: 0.76rem;
+}
+
+/* Search Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10vh;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.search-modal {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 640px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 75vh;
+  animation: modalScale 0.18s ease-out;
+}
+
+@keyframes modalScale {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.search-modal-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.search-modal-header svg {
+  color: var(--accent);
+}
+
+.search-modal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-size: 1.05rem;
+  outline: none;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.modal-close-btn:hover {
+  color: var(--text-main);
+}
+
+.search-results-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.search-result-card {
+  padding: 0.75rem 0.85rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.search-result-card:hover,
+.search-result-card.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.sr-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.sr-ch-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.sr-sec-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0.25rem;
+}
+
+.sr-snippet {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.search-highlight {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  padding: 0 0.15rem;
+  border-radius: 2px;
+}
+
+.search-modal-footer {
+  padding: 0.65rem 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Lightbox Modal */
+.lightbox-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-overlay.open {
+  display: flex;
+}
+
+.lightbox-img-stage {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: grab;
+  position: relative;
+}
+
+.lightbox-img-stage.grabbing {
+  cursor: grabbing;
+}
+
+.lightbox-img {
+  max-width: 90vw;
+  max-height: 82vh;
+  object-fit: contain;
+  transition: transform 0.1s ease-out;
+  user-select: none;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+}
+
+.lightbox-toolbar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  border-radius: 999px;
+  padding: 0 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.lightbox-btn {
+  background: none;
+  border: none;
+  color: #f1f5f9;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.2s;
+}
+
+.lightbox-btn:hover {
+  background: #334155;
+  color: var(--accent);
+}
+
+.lightbox-caption {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* Media Queries */
+@media (max-width: 1240px) {
+  .right-toc-rail {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .menu-toggle-btn {
+    display: inline-flex;
+  }
+  .content-article-area {
+    padding: 1.5rem 1.25rem;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .sidebar, .top-header, .right-toc-rail, .chapter-nav-footer, .mark-done-btn, .diagram-hint {
+    display: none !important;
+  }
+  body, .app-container, .main-wrapper, .content-article-area {
+    background: #ffffff !important;
+    color: #000000 !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .chapter-pane {
+    display: block !important;
+    page-break-after: always;
+  }
+}
+
+  .standalone-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+  }
+  .standalone-top-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 0.4rem 0.8rem;
+    background: var(--accent-soft);
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .back-btn:hover {
+    background: var(--accent-glow);
+  }
+  </style>
+</head>
+<body>
+  <div class="standalone-container">
+    <div class="standalone-top-nav">
+      <a href="../index.html#ch-20" class="back-btn">&larr; Back to Master Index (All 28 Chapters)</a>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="icon-btn" onclick="toggleTheme()" title="Toggle Dark/Light theme">🌓 Theme</button>
+        <button class="icon-btn" onclick="window.print()" title="Print Chapter">🖨️ Print</button>
+      </div>
+    </div>
+    
+    <header class="chapter-header-card">
+      <span class="ch-pill">Chapter 20</span>
+      <h1 class="chapter-main-title">Chapter 20 - Metrics Monitoring and Alerting System</h1>
+      <div class="ch-meta-row">
+        <span class="meta-item">⏱️ 16 min read</span>
+        <span class="meta-item">📝 3,298 words</span>
+        <span class="meta-item">🖼️ 22 diagrams</span>
+      </div>
+    </header>
+
+    <div class="chapter-body">
+      <h1 id="ch-20-chapter-20-metrics-monitoring-and-alerting-system">Chapter 20: Metrics Monitoring and Alerting System</h1>
+<h2 id="ch-20-introduction" class="section-heading">Introduction <a href="#ch-20-introduction" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>This chapter focuses on designing a highly scalable <strong>metrics monitoring and alerting system</strong>, which is critical for ensuring high availability and reliability.</p>
+<hr />
+<h2 id="ch-20-step-1-understand-the-problem-and-establish-design-scope" class="section-heading">Step 1: Understand the Problem and Establish Design Scope <a href="#ch-20-step-1-understand-the-problem-and-establish-design-scope" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>A metrics monitoring system can mean a lot of different things - eg you don't want to design a logs aggregation system, when the interviewer is interested in infra metrics only.</p>
+<p>Let's try to understand the problem first:
+ - C: Who are we building the system for? An in-house monitoring system for a big tech company or a SaaS like DataDog?
+ - I: We are building for internal use only.
+ - C: Which metrics do we want to collect?
+ - I: Operational system metrics - CPU load, Memory, Data disk space. But also high-level metrics like requests per second. Business metrics are not in scope.
+ - C: What is the scale of the infrastructure we're monitoring?
+ - I: 100mil daily active users, 1000 server pools, 100 machines per pool
+ - C: How long should we keep the data?
+ - I: Let's assume 1y retention.
+ - C: May we reduce metrics data resolution for long-term storage?
+ - I: Keep newly received metrics for 7 days. Roll them up to 1m resolution for next 30 days. Further roll them up to 1h resolution after 30 days.
+ - C: What are the supported alert channels?
+ - I: Email, phone, PagerDuty or webhooks.
+ - C: Do we need to collect logs such as error or access logs?
+ - I: No
+ - C: Do we need to support distributed system tracing?
+ - I: No</p>
+<h3 id="ch-20-high-level-requirements-and-assumptions" class="section-heading"><strong>High-level requirements and assumptions</strong> <a href="#ch-20-high-level-requirements-and-assumptions" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>The infrastructure being monitored is large-scale:
+ - 100mil DAU
+ - 1000 server pools * 100 machines * ~100 metrics per machine -&gt; ~10mil metrics
+ - 1-year data retention
+ - Data retention policy - raw for 7d, 1-minute resolution for 30d, 1h resolution for 1y</p>
+<p>A variety of metrics can be monitored:
+ - CPU load
+ - Request count
+ - Memory usage
+ - Message count in message queues</p>
+<h3 id="ch-20-non-functional-requirements" class="section-heading"><strong>Non-functional requirements</strong> <a href="#ch-20-non-functional-requirements" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<ul>
+<li><strong>Scalability</strong>: System should be scalable to accommodate more metrics and alerts</li>
+<li><strong>Low latency</strong>: System needs to have low query latency for dashboards and alerts</li>
+<li><strong>Reliability</strong>: System should be highly reliable to avoid missing critical alerts</li>
+<li><strong>Flexibility</strong>: System should be able to easily integrate new technologies in the future</li>
+</ul>
+<p>What requirements are out of scope?
+ - <strong>Log monitoring</strong>: the ELK stack is very popular for this use-case
+ - <strong>Distributed system tracing</strong>: this refers to collecting data about a request lifecycle as it flows through multiple services within the system</p>
+<hr />
+<h2 id="ch-20-step-2-propose-high-level-design-and-get-buy-in" class="section-heading">Step 2: Propose High-Level Design and Get Buy-In <a href="#ch-20-step-2-propose-high-level-design-and-get-buy-in" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<h3 id="ch-20-fundamentals" class="section-heading"><strong>Fundamentals</strong> <a href="#ch-20-fundamentals" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>There are five core components involved in a metrics monitoring and alerting system:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/metrics-monitoring-core-components.png" alt="metrics-monitoring-core-components" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li><strong>Data collection</strong>: collect metrics data from different sources</li>
+<li><strong>Data transmission</strong>: transfer data from sources to the metrics monitoring system</li>
+<li><strong>Data storage</strong>: organize and store incoming data</li>
+<li><strong>Alerting</strong>: Analyze incoming data, detect anomalies and generate alerts</li>
+<li><strong>Visualization</strong>: Present data in graphs, charts, etc</li>
+</ul>
+<h3 id="ch-20-data-model" class="section-heading"><strong>Data model</strong> <a href="#ch-20-data-model" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Metrics data is usually recorded as a time-series, which contains a set of values with timestamps.
+The series can be identified by name and an optional set of tags.</p>
+<p>Example 1 - What is the CPU load on production server instance i631 at 20:00?</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/metrics-example-1.png" alt="metrics-example-1" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>The data can be identified by the following table:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/metrics-example-1-data.png" alt="metrics-example-1-data" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>The time series is identified by the metric name, labels and a single point in at a specific time.</p>
+<p>Example 2 - What is the average CPU load across all web servers in the us-west region for the last 10min?</p>
+<div class="code-wrapper">
+  <div class="code-header">
+    <span class="code-badge">CODE</span>
+    <button class="copy-btn" onclick="copyCode(this)" title="Copy code to clipboard">
+      <svg class="copy-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      <span>Copy</span>
+    </button>
+  </div>
+  <pre><code>CPU.load host=webserver01,region=us-west 1613707265 50
+
+CPU.load host=webserver01,region=us-west 1613707265 62
+
+CPU.load host=webserver02,region=us-west 1613707265 43
+
+CPU.load host=webserver02,region=us-west 1613707265 53
+
+...
+
+CPU.load host=webserver01,region=us-west 1613707265 76
+
+CPU.load host=webserver01,region=us-west 1613707265 83
+</code></pre>
+</div>
+<p>This is an example data we might pull from storage to answer that question.
+The average CPU load can be calculated by averaging the values in the last column of the rows.</p>
+<p>The format shown above is called the line protocol and is used by many popular monitoring software in the market - eg Prometheus, OpenTSDB.</p>
+<p>What every time series consists of:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/time-series-data-example.png" alt="time-series-data-example" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>A good way to visualize how data looks like:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/time-series-data-viz.png" alt="time-series-data-viz" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>The x axis is the time</li>
+<li>the y axis is the dimension you're querying - eg metric name, tag, etc.</li>
+</ul>
+<p>The data access pattern is write-heavy and spiky reads as we collect a lot of metrics, but they are infrequently accessed, although in bursts when eg there are ongoing incidents.</p>
+<p>The data storage system is the heart of this design. 
+ - It is not recommended to use a general-purpose database for this problem, although you could achieve good scale \w expert-level tuning.
+ - Using a NoSQL database can work in theory, but it is hard to devise a scalable schema for effectively storing and querying time-series data.</p>
+<p>There are many databases, specifically tailored for storing time-series data. Many of them support custom query interfaces which allow for effective querying of time-series data.
+ - OpenTSDB is a distributed time-series database, but it is based on Hadoop and HBase. If you don't have that infrastructure provisioned, it would be hard to use this tech.
+ - Twitter uses MetricsDB, while Amazon offers Timestream.
+ - The two most popular time-series databases are InfluxDB and Prometheus. 
+ - They are designed to store large volumes of time-series data. Both of them are based on in-memory cache + on-disk storage.</p>
+<p>Example scale of InfluxDB - more than 250k writes per second when provisioned with 8 cores and 32gb RAM:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/influxdb-scale.png" alt="influxdb-scale" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>It is not expected for you to understand the internals of a metrics database as it is niche knowledge. You might be asked only if you've mentioned it on your resume.</p>
+<p>For the purposes of the interview, it is sufficient to understand that metrics are time-series data and to be aware of popular time-series databases, like InfluxDB.</p>
+<p>One nice feature of time-series databases is the efficient aggregation and analysis of large amounts of time-series data by labels.
+InfluxDB, for example, builds indexes for each label.</p>
+<p>It is critical, however, to keep the cardinality of labels low - ie, not using too many unique labels.</p>
+<h3 id="ch-20-high-level-design" class="section-heading"><strong>High-level Design</strong> <a href="#ch-20-high-level-design" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/high-level-design.png" alt="high-level-design" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li><strong>Metrics source</strong>: can be application servers, SQL databases, message queues, etc.</li>
+<li><strong>Metrics collector</strong>: Gathers metrics data and writes to time-series database</li>
+<li><strong>Time-series database</strong>: stores metrics as time-series. Provides a custom query interface for analyzing large amounts of metrics.</li>
+<li><strong>Query service</strong>: Makes it easy to query and retrieve data from the time-series DB. Could be replaced entirely by the DB's interface if it's sufficiently powerful.</li>
+<li><strong>Alerting system</strong>: Sends alert notifications to various alerting destinations.</li>
+<li><strong>Visualization system</strong>: Shows metrics in the form of graphs/charts.</li>
+</ul>
+<hr />
+<h2 id="ch-20-step-3-design-deep-dive" class="section-heading">Step 3: Design Deep Dive <a href="#ch-20-step-3-design-deep-dive" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>Let's deep dive into several of the more interesting parts of the system.</p>
+<h3 id="ch-20-metrics-collection" class="section-heading"><strong>Metrics collection</strong> <a href="#ch-20-metrics-collection" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>For metrics collection, occasional data loss is not critical. It's acceptable for clients to fire and forget.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/metrics-collection.png" alt="metrics-collection" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>There are two ways to implement metrics collection - pull or push.</p>
+<p>Here's how the pull model might look like:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/pull-model-example.png" alt="pull-model-example" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>For this solution, the metrics collector needs to maintain an up-to-date list of services and metrics endpoints.
+We can use Zookeeper or etcd for that purpose - service discovery.</p>
+<p>Service discovery contains contains configuration rules about when and where to collect metrics from:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/service-discovery-example.png" alt="service-discovery-example" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Here's a detailed explanation of the metrics collection flow:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/metrics-collection-flow.png" alt="metrics-collection-flow" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Metrics collector fetches configuration metadata from service discovery. This includes pulling interval, IP addresses, timeout &amp; retry params.</li>
+<li>Metrics collector pulls metrics data via a pre-defined http endpoint (eg <code>/metrics</code>). This is typically done by a client library.</li>
+<li>Alternatively, the metrics collector can register a change event notification with the service discovery to be notified once the service endpoint changes.</li>
+<li>Another option is for the metrics collector to periodically poll for metrics endpoint configuration changes.</li>
+</ul>
+<p>At our scale, a single metrics collector is not enough. There must be multiple instances. 
+However, there must also be some kind of synchronization among them so that two collectors don't collect the same metrics twice.</p>
+<p>One solution for this is to position collectors and servers on a consistent hash ring and associate a set of servers with a single collector only:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/consistent-hash-ring.png" alt="consistent-hash-ring" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>With the push model, on the other hand, services push their metrics to the metrics collector proactively:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/push-model-example.png" alt="push-model-example" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>In this approach, typically a collection agent is installed alongside service instances. 
+The agent collects metrics from the server and pushes them to the metrics collector.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/metrics-collector-agent.png" alt="metrics-collector-agent" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>With this model, we can potentially aggregate metrics before sending them to the collector, which reduces the volume of data processed by the collector.</p>
+<p>On the flip side, metrics collector can reject push requests as it can't handle the load. 
+It is important, hence, to add the collector to an auto-scaling group behind a load balancer.</p>
+<p>so which one is better? There are trade-offs between both approaches and different systems use different approaches:
+ - Prometheus uses a pull architecture
+ - Amazon Cloud Watch and Graphite use a push architecture</p>
+<p>Here are some of the main differences between push and pull:
+|                                        | Pull                                                                                                                                                                                                    | Push                                                                                                                                                                                                                                    |
+|----------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Easy debugging                         | The /metrics endpoint on application servers used for pulling metrics can be used to view metrics at any time. You can even do this on your laptop. Pull wins.                                          | If the metrics collector doesn't receive metrics, the problem might be caused by network issues.                                                                                                                                        |
+| Health check                           | If an application server doesn't respond to the pull, you can quickly figure out if an application server is down. Pull wins.                                                                           | If the metrics collector doesn't receive metrics, the problem might be caused by network issues.                                                                                                                                        |
+| Short-lived jobs                       |                                                                                                                                                                                                         | Some of the batch jobs might be short-lived and don't last long enough to be pulled. Push wins. This can be fixed by introducing push gateways for the pull model [22].                                                                 |
+| Firewall or complicated network setups | Having servers pulling metrics requires all metric endpoints to be reachable. This is potentially problematic in multiple data center setups. It might require a more elaborate network infrastructure. | If the metrics collector is set up with a load balancer and an auto-scaling group, it is possible to receive data from anywhere. Push wins.                                                                                             |
+| Performance                            | Pull methods typically use TCP.                                                                                                                                                                         | Push methods typically use UDP. This means the push method provides lower-latency transports of metrics. The counterargument here is that the effort of establishing a TCP connection is small compared to sending the metrics payload. |
+| Data authenticity                      | Application servers to collect metrics from are defined in config files in advance. Metrics gathered from those servers are guaranteed to be authentic.                                                 | Any kind of client can push metrics to the metrics collector. This can be fixed by whitelisting servers from which to accept metrics, or by requiring authentication.                                                                   |</p>
+<p>There is no clear winner. A large organization probably needs to support both. There might not be a way to install a push agent in the first place.</p>
+<h3 id="ch-20-scale-the-metrics-transmission-pipeline" class="section-heading"><strong>Scale the metrics transmission pipeline</strong> <a href="#ch-20-scale-the-metrics-transmission-pipeline" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/metrics-transmission-pipeline.png" alt="metrics-transmission-pipeline" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>The metrics collector is provisioned in an auto-scaling group, regardless if we use the push or pull model.</p>
+<p>There is a chance of data loss if the time-series DB is down, however. To mitigate this, we'll provision a queuing mechanism:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/queuing-mechanism.png" alt="queuing-mechanism" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Metrics collectors push metrics data into kafka</li>
+<li>Consumers or stream processing services such as Apache Storm, Flink or Spark process the data and push it to the time-series DB</li>
+</ul>
+<p>This approach has several advantages:
+ - Kafka is used as a highly-reliable and scalable distributed message platform
+ - It decouples data collection and data processing from one another
+ - It can prevent data loss by retaining the data in Kafka</p>
+<p>Kafka can be configured with one partition per metric name, so that consumers can aggregate data by metric names.
+To scale this, we can further partition by tags/labels and categorize/prioritize metrics to be collected first.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/metrics-collection-kafka.png" alt="metrics-collection-kafka" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>The main downside of using Kafka for this problem is the maintenance/operation overhead.
+An alternative is to use a large-scale ingestion system like <a href="https://www.vldb.org/pvldb/vol8/p1816-teller.pdf">Gorilla</a>.
+It can be argued that using that would be as scalable as using Kafka for queuing.</p>
+<h3 id="ch-20-where-aggregations-can-happen" class="section-heading"><strong>Where aggregations can happen</strong> <a href="#ch-20-where-aggregations-can-happen" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Metrics can be aggregated at several places. There are trade-offs between different choices:
+ - <strong>Collection agent</strong>: client-side collection agent only supports simple aggregation logic. Eg collect a counter for 1m and send it to the metrics collector.
+ - <strong>Ingestion pipeline</strong>: To aggregate data before writing to the DB, we need a stream processing engine like Flink. This reduces write volume, but we lose data precision as we don't store raw data.
+ - <strong>Query side</strong>: We can aggregate data when we run queries via our visualization system. There is no data loss, but queries can be slow due to a lot of data processing.</p>
+<h3 id="ch-20-query-service" class="section-heading"><strong>Query Service</strong> <a href="#ch-20-query-service" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Having a separate query service from the time-series DB decouples the visualization and alerting system from the database, which enables us to decouple the DB from clients and change it at will.</p>
+<p>We can add a Cache layer here to reduce the load to the time-series database:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/cache-layer-query-service.png" alt="cache-layer-query-service" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>We can also avoid adding a query service altogether as most visualization and alerting systems have powerful plugins to integrate with most time-series databases.
+With a well-chosen time-series DB, we might not need to introduce our own caching layer as well.</p>
+<p>Most time-series DBs don't support SQL simply because it is ineffective for querying time-series data. Here's an example SQL query for computing an exponential moving average:</p>
+<div class="code-wrapper">
+  <div class="code-header">
+    <span class="code-badge">CODE</span>
+    <button class="copy-btn" onclick="copyCode(this)" title="Copy code to clipboard">
+      <svg class="copy-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      <span>Copy</span>
+    </button>
+  </div>
+  <pre><code>select id,
+       temp,
+       avg(temp) over (partition by group_nr order by time_read) as rolling_avg
+from (
+  select id,
+         temp,
+         time_read,
+         interval_group,
+         id - row_number() over (partition by interval_group order by time_read) as group_nr
+  from (
+    select id,
+    time_read,
+    &quot;epoch&quot;::timestamp + &quot;900 seconds&quot;::interval * (extract(epoch from time_read)::int4 / 900) as interval_group,
+    temp
+    from readings
+  ) t1
+) t2
+order by time_read;
+</code></pre>
+</div>
+<p>Here's the same query in Flux - query language used in InfluxDB:</p>
+<div class="code-wrapper">
+  <div class="code-header">
+    <span class="code-badge">CODE</span>
+    <button class="copy-btn" onclick="copyCode(this)" title="Copy code to clipboard">
+      <svg class="copy-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      <span>Copy</span>
+    </button>
+  </div>
+  <pre><code>from(db:&quot;telegraf&quot;)
+  |&gt; range(start:-1h)
+  |&gt; filter(fn: (r) =&gt; r._measurement == &quot;foo&quot;)
+  |&gt; exponentialMovingAverage(size:-10s)
+</code></pre>
+</div>
+<h3 id="ch-20-storage-layer" class="section-heading"><strong>Storage layer</strong> <a href="#ch-20-storage-layer" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>It is important to choose the time-series database carefully.</p>
+<p>According to research published by Facebook, ~85% of queries to the operational store were for data from the past 26h.</p>
+<p>If we choose a database, which harnesses this property, it could have significant impact on system performance. InfluxDB is one such option.</p>
+<p>Regardless of the database we choose, there are some optimizations we might employ.</p>
+<p>Data encoding and compression can significantly reduce the size of data. Those features are usually built into a good time-series database.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/double-delta-encoding.png" alt="double-delta-encoding" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>In the above example, instead of storing full timestamps, we can store timestamp deltas.</p>
+<p>Another technique we can employ is down-sampling - converting high-resolution data to low-resolution in order to reduce disk usage.</p>
+<p>We can use that for old data and make the rules configurable by data scientists, eg:
+ - 7d - no down-sampling
+ - 30d - down-sample to 1min
+ - 1y - down-sample to 1h</p>
+<p>For example, here's a 10-second resolution metrics table:
+| metric | timestamp            | hostname | Metric_value |
+|--------|----------------------|----------|--------------|
+| cpu    | 2021-10-24T19:00:00Z | host-a   | 10           |
+| cpu    | 2021-10-24T19:00:10Z | host-a   | 16           |
+| cpu    | 2021-10-24T19:00:20Z | host-a   | 20           |
+| cpu    | 2021-10-24T19:00:30Z | host-a   | 30           |
+| cpu    | 2021-10-24T19:00:40Z | host-a   | 20           |
+| cpu    | 2021-10-24T19:00:50Z | host-a   | 30           |</p>
+<p>down-sampled to 30-second resolution:
+| metric | timestamp            | hostname | Metric_value (avg) |
+|--------|----------------------|----------|--------------------|
+| cpu    | 2021-10-24T19:00:00Z | host-a   | 19                 |
+| cpu    | 2021-10-24T19:00:30Z | host-a   | 25                 |</p>
+<p>Finally, we can also use cold storage to use old data, which is no longer used. The financial cost for cold storage is much lower.</p>
+<h3 id="ch-20-alerting-system" class="section-heading"><strong>Alerting system</strong> <a href="#ch-20-alerting-system" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/alerting-system.png" alt="alerting-system" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Configuration is loaded to cache servers. Rules are typically defined in YAML format. Here's an example:</p>
+<div class="code-wrapper">
+  <div class="code-header">
+    <span class="code-badge">CODE</span>
+    <button class="copy-btn" onclick="copyCode(this)" title="Copy code to clipboard">
+      <svg class="copy-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      <span>Copy</span>
+    </button>
+  </div>
+  <pre><code>- name: instance_down
+  rules:
+
+  # Alert for any instance that is unreachable for &gt;5 minutes.
+  - alert: instance_down
+    expr: up == 0
+    for: 5m
+    labels:
+      severity: page
+</code></pre>
+</div>
+<p>The alert manager fetches alert configurations from cache. Based on configuration rules, it also calls the query service at a predefined interval.
+If a rule is met, an alert event is created.</p>
+<p>Other responsibilities of the alert manager are:
+ - Filtering, merging and deduplicating alerts. Eg if an alert of a single instance is triggered multiple times, only one alert event is generated.
+ - Access control - it is important to restrict alert-management operations to certain individuals only
+ - Retry - the manager ensures that the alert is propagated at least once.</p>
+<p>The alert store is a key-value database, like Cassandra, which keeps the state of all alerts. It ensures a notification is sent at least once.
+Once an alert is triggered, it is published to Kafka.</p>
+<p>Finally, alert consumers pull alerts data from Kafka and send notifications over to different channels - Email, text message, PagerDuty, webhooks.</p>
+<p>In the real-world, there are many off-the-shelf solutions for alerting systems. It is difficult to justify building your own system in-house.</p>
+<h3 id="ch-20-visualization-system" class="section-heading"><strong>Visualization system</strong> <a href="#ch-20-visualization-system" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>The visualization system shows metrics and alerts over a time period. Here's an dashboard built with Grafana:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/grafana-dashboard.png" alt="grafana-dashboard" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>A high-quality visualization system is very hard to build. It is hard to justify not using an off-the-shelf solution like Grafana.</p>
+<hr />
+<h2 id="ch-20-step-4-wrap-up" class="section-heading">Step 4: Wrap up <a href="#ch-20-step-4-wrap-up" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>Here's our final design:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/final-design.png" alt="final-design" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+    </div>
+    
+    <div style="margin-top:3rem;text-align:center;">
+      <a href="../index.html#ch-20" class="back-btn" style="padding:0.75rem 1.5rem;font-size:1rem;">&larr; Return to All System Design Chapters</a>
+    </div>
+  </div>
+
+  <!-- Image Diagram Lightbox Modal -->
+  <div class="lightbox-overlay" id="lightbox-modal" onclick="if(event.target===this) closeLightbox()">
+    <div class="lightbox-caption" id="lightbox-caption">Architecture Diagram</div>
+    <div class="lightbox-img-stage" id="lightbox-stage">
+      <img id="lightbox-active-img" class="lightbox-img" src="" alt="Enlarged Diagram">
+    </div>
+    <div class="lightbox-toolbar">
+      <button class="lightbox-btn" onclick="zoomLightbox(0.25)">Zoom In (+)</button>
+      <button class="lightbox-btn" onclick="zoomLightbox(-0.25)">Zoom Out (-)</button>
+      <button class="lightbox-btn" onclick="resetLightbox()">Reset (1:1)</button>
+      <button class="lightbox-btn" onclick="closeLightbox()">Close (Esc)</button>
+    </div>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    }
+    function copyCode(btn) {
+      const wrapper = btn.closest('.code-wrapper');
+      const codeEl = wrapper.querySelector('pre code');
+      if (codeEl) {
+        navigator.clipboard.writeText(codeEl.innerText);
+        const span = btn.querySelector('span');
+        const orig = span.textContent;
+        span.textContent = 'Copied!';
+        setTimeout(() => span.textContent = orig, 1800);
+      }
+    }
+    let lightboxScale = 1;
+    function openLightbox(img) {
+      document.getElementById('lightbox-active-img').src = img.src;
+      document.getElementById('lightbox-modal').classList.add('open');
+      lightboxScale = 1;
+      updateTransform();
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox-modal').classList.remove('open');
+    }
+    function zoomLightbox(delta) {
+      lightboxScale = Math.max(0.5, Math.min(5, lightboxScale + delta));
+      updateTransform();
+    }
+    function resetLightbox() {
+      lightboxScale = 1;
+      updateTransform();
+    }
+    function updateTransform() {
+      document.getElementById('lightbox-active-img').style.transform = `scale(${lightboxScale})`;
+    }
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeLightbox();
+    });
+  </script>
+</body>
+</html>

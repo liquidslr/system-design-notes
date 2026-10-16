@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-font-size="md">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 26 - Payment System — System Design Notes</title>
+  <style>
+
+:root {
+  --bg-body: #0b0f19;
+  --bg-sidebar: #0f172a;
+  --bg-header: rgba(15, 23, 42, 0.85);
+  --bg-card: #131d35;
+  --bg-card-hover: #1e293b;
+  --bg-input: #1e293b;
+  --bg-code: #070b14;
+  --border-subtle: #1e293b;
+  --border-card: #27354f;
+  --text-main: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #38bdf8;
+  --accent-hover: #0284c7;
+  --accent-glow: rgba(56, 189, 248, 0.18);
+  --accent-soft: rgba(56, 189, 248, 0.12);
+  --success: #10b981;
+  --success-glow: rgba(16, 185, 129, 0.15);
+  --code-header-bg: #0d1527;
+  --table-border: #27354f;
+  --table-head-bg: #1e293b;
+  --table-row-alt: #162036;
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.6);
+  --font-base: 16px;
+  --sidebar-width: 320px;
+  --toc-width: 260px;
+}
+
+[data-theme="light"] {
+  --bg-body: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-header: rgba(255, 255, 255, 0.88);
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-input: #f1f5f9;
+  --bg-code: #0f172a;
+  --border-subtle: #e2e8f0;
+  --border-card: #e2e8f0;
+  --text-main: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent: #0284c7;
+  --accent-hover: #0369a1;
+  --accent-glow: rgba(2, 132, 199, 0.15);
+  --accent-soft: rgba(2, 132, 199, 0.08);
+  --success: #059669;
+  --success-glow: rgba(5, 150, 105, 0.15);
+  --code-header-bg: #1e293b;
+  --table-border: #e2e8f0;
+  --table-head-bg: #f1f5f9;
+  --table-row-alt: #f8fafc;
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.12);
+}
+
+[data-font-size="sm"] { --font-base: 15px; }
+[data-font-size="md"] { --font-base: 16px; }
+[data-font-size="lg"] { --font-base: 18px; }
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: var(--font-base);
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg-body);
+  color: var(--text-main);
+  line-height: 1.7;
+  overflow-x: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-card);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Layout */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Left Sidebar */
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  transition: transform 0.25s ease;
+}
+
+.sidebar-header {
+  padding: 1.25rem 1.25rem 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.5rem;
+}
+
+.brand-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.brand-title svg {
+  color: var(--accent);
+}
+
+.brand-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+/* Sidebar Search & Filter */
+.sidebar-search-box {
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.filter-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.filter-input-wrap svg {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.filter-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.2rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.filter-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.global-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.global-search-btn:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+
+.kbd-badge {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+/* Sidebar Progress */
+.progress-card {
+  padding: 0.75rem 1.25rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.4rem;
+}
+
+.progress-track {
+  width: 100%;
+  height: 6px;
+  background: var(--border-subtle);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* Navigation List */
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.nav-chapter-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: all 0.18s ease;
+  position: relative;
+  border-left: 3px solid transparent;
+}
+
+.nav-chapter-item:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+}
+
+.nav-chapter-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  border-left-color: var(--accent);
+}
+
+.nav-check-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.nav-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.nav-checkbox.checked {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.nav-checkbox.checked::after {
+  content: '✓';
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.nav-num {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  min-width: 24px;
+  text-align: center;
+  font-family: monospace;
+}
+
+.nav-chapter-item.active .nav-num {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.nav-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.nav-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+}
+
+.footer-btn {
+  background: none;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.footer-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--border-card);
+}
+
+/* Main Content Area */
+.main-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top Sticky Header */
+.top-header {
+  position: sticky;
+  top: 0;
+  height: 56px;
+  background: var(--bg-header);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  z-index: 90;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.menu-toggle-btn {
+  display: none;
+  background: none;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  padding: 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.breadcrumbs {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.breadcrumbs strong {
+  color: var(--text-main);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.icon-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 0.45rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
+/* Content Container */
+.content-layout {
+  display: flex;
+  flex: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.content-article-area {
+  flex: 1;
+  min-width: 0;
+  padding: 2.5rem 3rem;
+  max-width: 900px;
+}
+
+/* Chapter Panes */
+.chapter-pane {
+  display: none;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+.chapter-pane.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Chapter Header Card */
+.chapter-header-card {
+  padding-bottom: 2rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ch-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.ch-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+}
+
+.mark-done-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mark-done-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
+.mark-done-btn.is-read {
+  background: var(--success);
+  border-color: var(--success);
+  color: #ffffff;
+}
+
+.chapter-main-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--text-main);
+  margin-bottom: 1rem;
+  letter-spacing: -0.03em;
+}
+
+.ch-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Chapter Body Typography */
+.chapter-body {
+  color: var(--text-main);
+  font-size: 1rem;
+}
+
+.chapter-body h1 {
+  display: none; /* Already rendered in header card */
+}
+
+.chapter-body h2 {
+  font-size: 1.55rem;
+  font-weight: 750;
+  color: var(--text-main);
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  scroll-margin-top: 70px;
+  position: relative;
+}
+
+.chapter-body h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-top: 1.85rem;
+  margin-bottom: 0.75rem;
+  scroll-margin-top: 70px;
+  position: relative;
+}
+
+.chapter-body h4 {
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--text-secondary);
+  margin-top: 1.35rem;
+  margin-bottom: 0.5rem;
+  scroll-margin-top: 70px;
+}
+
+.heading-anchor {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.85em;
+  opacity: 0;
+  margin-left: 0.4rem;
+  transition: opacity 0.15s;
+}
+
+.chapter-body h2:hover .heading-anchor,
+.chapter-body h3:hover .heading-anchor {
+  opacity: 1;
+}
+
+.chapter-body p {
+  margin-bottom: 1.2rem;
+  color: var(--text-main);
+}
+
+.chapter-body ul, .chapter-body ol {
+  margin-bottom: 1.2rem;
+  padding-left: 1.6rem;
+  color: var(--text-main);
+}
+
+.chapter-body li {
+  margin-bottom: 0.45rem;
+}
+
+.chapter-body hr {
+  border: none;
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 2.5rem 0;
+}
+
+.chapter-body blockquote {
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 0.85rem 1.25rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1.5rem 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.chapter-body a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--accent);
+  transition: all 0.2s;
+}
+
+.chapter-body a:hover {
+  color: var(--accent-hover);
+  border-bottom-style: solid;
+}
+
+/* Inline Code */
+.chapter-body code {
+  font-family: "JetBrains Mono", Consolas, "Fira Code", Monaco, monospace;
+  font-size: 0.88em;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--accent);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+/* Code Blocks */
+.code-wrapper {
+  margin: 1.5rem 0;
+  background: var(--bg-code);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.85rem;
+  background: var(--code-header-bg);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.code-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: monospace;
+}
+
+.copy-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s;
+}
+
+.copy-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
+.code-wrapper pre {
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #e2e8f0;
+}
+
+.code-wrapper pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* Tables */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  border: 1px solid var(--table-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.table-container table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.table-container th {
+  background: var(--table-head-bg);
+  color: var(--text-main);
+  font-weight: 700;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--table-border);
+  border-right: 1px solid var(--table-border);
+}
+
+.table-container td {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--table-border);
+  border-right: 1px solid var(--table-border);
+  color: var(--text-secondary);
+}
+
+.table-container th:last-child,
+.table-container td:last-child {
+  border-right: none;
+}
+
+.table-container tr:nth-child(even) {
+  background: var(--table-row-alt);
+}
+
+.table-container tr:hover td {
+  background: var(--accent-soft);
+  color: var(--text-main);
+}
+
+/* Diagrams and Images */
+.diagram-wrapper {
+  margin: 2rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.25s ease;
+}
+
+.diagram-wrapper:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+.diagram-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  cursor: zoom-in;
+  transition: transform 0.2s ease;
+  display: block;
+}
+
+.diagram-hint {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  user-select: none;
+}
+
+.diagram-wrapper:hover .diagram-hint {
+  color: var(--accent);
+}
+
+/* Chapter Navigation Footer */
+.chapter-nav-footer {
+  margin-top: 3.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.footer-nav-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.footer-nav-card:hover {
+  border-color: var(--accent);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.footer-nav-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.footer-nav-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.footer-nav-card.next-card {
+  text-align: right;
+}
+
+/* Right TOC Rail */
+.right-toc-rail {
+  width: var(--toc-width);
+  min-width: var(--toc-width);
+  position: sticky;
+  top: 56px;
+  height: calc(100vh - 56px);
+  overflow-y: auto;
+  padding: 2.5rem 1.25rem 2.5rem 0.5rem;
+}
+
+.toc-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 1.15rem;
+}
+
+.toc-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.toc-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.toc-link {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  display: block;
+  line-height: 1.35;
+  transition: color 0.15s;
+}
+
+.toc-link:hover {
+  color: var(--accent);
+}
+
+.toc-link.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.toc-item.level-3 {
+  padding-left: 0.85rem;
+  font-size: 0.76rem;
+}
+
+/* Search Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10vh;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.search-modal {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 640px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 75vh;
+  animation: modalScale 0.18s ease-out;
+}
+
+@keyframes modalScale {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.search-modal-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.search-modal-header svg {
+  color: var(--accent);
+}
+
+.search-modal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-size: 1.05rem;
+  outline: none;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.modal-close-btn:hover {
+  color: var(--text-main);
+}
+
+.search-results-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.search-result-card {
+  padding: 0.75rem 0.85rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.search-result-card:hover,
+.search-result-card.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.sr-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.sr-ch-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.sr-sec-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0.25rem;
+}
+
+.sr-snippet {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.search-highlight {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  padding: 0 0.15rem;
+  border-radius: 2px;
+}
+
+.search-modal-footer {
+  padding: 0.65rem 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Lightbox Modal */
+.lightbox-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-overlay.open {
+  display: flex;
+}
+
+.lightbox-img-stage {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: grab;
+  position: relative;
+}
+
+.lightbox-img-stage.grabbing {
+  cursor: grabbing;
+}
+
+.lightbox-img {
+  max-width: 90vw;
+  max-height: 82vh;
+  object-fit: contain;
+  transition: transform 0.1s ease-out;
+  user-select: none;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+}
+
+.lightbox-toolbar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  border-radius: 999px;
+  padding: 0 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.lightbox-btn {
+  background: none;
+  border: none;
+  color: #f1f5f9;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.2s;
+}
+
+.lightbox-btn:hover {
+  background: #334155;
+  color: var(--accent);
+}
+
+.lightbox-caption {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* Media Queries */
+@media (max-width: 1240px) {
+  .right-toc-rail {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .menu-toggle-btn {
+    display: inline-flex;
+  }
+  .content-article-area {
+    padding: 1.5rem 1.25rem;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .sidebar, .top-header, .right-toc-rail, .chapter-nav-footer, .mark-done-btn, .diagram-hint {
+    display: none !important;
+  }
+  body, .app-container, .main-wrapper, .content-article-area {
+    background: #ffffff !important;
+    color: #000000 !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .chapter-pane {
+    display: block !important;
+    page-break-after: always;
+  }
+}
+
+  .standalone-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+  }
+  .standalone-top-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 0.4rem 0.8rem;
+    background: var(--accent-soft);
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .back-btn:hover {
+    background: var(--accent-glow);
+  }
+  </style>
+</head>
+<body>
+  <div class="standalone-container">
+    <div class="standalone-top-nav">
+      <a href="../index.html#ch-26" class="back-btn">&larr; Back to Master Index (All 28 Chapters)</a>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="icon-btn" onclick="toggleTheme()" title="Toggle Dark/Light theme">🌓 Theme</button>
+        <button class="icon-btn" onclick="window.print()" title="Print Chapter">🖨️ Print</button>
+      </div>
+    </div>
+    
+    <header class="chapter-header-card">
+      <span class="ch-pill">Chapter 26</span>
+      <h1 class="chapter-main-title">Chapter 26 - Payment System</h1>
+      <div class="ch-meta-row">
+        <span class="meta-item">⏱️ 13 min read</span>
+        <span class="meta-item">📝 2,608 words</span>
+        <span class="meta-item">🖼️ 10 diagrams</span>
+      </div>
+    </header>
+
+    <div class="chapter-body">
+      <h1 id="ch-26-chapter-26-payment-system">Chapter 26: Payment System</h1>
+<h2 id="ch-26-introduction" class="section-heading">Introduction <a href="#ch-26-introduction" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>We'll design a <strong>payment system</strong> in this chapter, which underpins all of modern <strong>e-commerce</strong>.</p>
+<p>A <strong>payment system</strong> is used to settle financial transactions, transferring monetary value.</p>
+<hr />
+<h2 id="ch-26-step-1-understand-the-problem-and-establish-design-scope" class="section-heading">Step 1: Understand the Problem and Establish Design Scope <a href="#ch-26-step-1-understand-the-problem-and-establish-design-scope" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<ul>
+<li>C: What kind of payment system are we building?</li>
+<li>I: A payment backend for an e-commerce system, similar to Amazon.com. It handles everything related to money movement.</li>
+<li>C: What payment options are supported - Credit cards, PayPal, bank cards, etc?</li>
+<li>I: The system should support all these options in real life. For the purposes of the interview, we can use credit card payments.</li>
+<li>C: Do we handle credit card processing ourselves?</li>
+<li>I: No, we use a third-party provider like Stripe, Braintree, Square, etc.</li>
+<li>C: Do we store credit card data in our system?</li>
+<li>I: Due to compliance reasons, we do not store credit card data directly in our systems. We rely on third-party payment processors.</li>
+<li>C: Is the application global? Do we need to support different currencies and international payments?</li>
+<li>I: The application is global, but we assume only one currency is used for the purposes of the interview.</li>
+<li>C: How many payment transactions per day do we support?</li>
+<li>I: 1mil transactions per day.</li>
+<li>C: Do we need to support the payout flow to eg payout to payers each month?</li>
+<li>I: Yes, we need to support that</li>
+<li>C: Is there anything else I should pay attention to?</li>
+<li>I: We need to support reconciliations to fix any inconsistencies in communicating with internal and external systems.</li>
+</ul>
+<h3 id="ch-26-functional-requirements" class="section-heading"><strong>Functional requirements</strong> <a href="#ch-26-functional-requirements" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<ul>
+<li>Pay-in flow - payment system receives money from customers on behalf of merchants</li>
+<li>Pay-out flow - payment system sends money to sellers around the world</li>
+</ul>
+<h3 id="ch-26-non-functional-requirements" class="section-heading"><strong>Non-functional requirements</strong> <a href="#ch-26-non-functional-requirements" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<ul>
+<li>Reliability and fault-tolerance. Failed payments need to be carefully handled</li>
+<li>A reconciliation between internal and external systems needs to be setup.</li>
+</ul>
+<h3 id="ch-26-back-of-the-envelope-estimation" class="section-heading"><strong>Back-of-the-envelope estimation</strong> <a href="#ch-26-back-of-the-envelope-estimation" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>The system needs to process 1mil transactions per day, which is 10 transactions per second.</p>
+<p>This is not a high throughput for any database system, so it's not the focus of this interview.</p>
+<hr />
+<h2 id="ch-26-step-2-propose-high-level-design-and-get-buy-in" class="section-heading">Step 2: Propose High-Level Design and Get Buy-In <a href="#ch-26-step-2-propose-high-level-design-and-get-buy-in" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>At a high-level, we have three actors, participating in money movement:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/high-level-flow.png" alt="high-level-flow" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<h3 id="ch-26-pay-in-flow" class="section-heading"><strong>Pay-in flow</strong> <a href="#ch-26-pay-in-flow" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Here's the high-level overview of the pay-in flow:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/payin-flow-high-level.png" alt="pay-in-flow-high-level" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>Payment service - accepts payment events and coordinates the payment process. It typically also does a risk check using a third-party provider for AML violations or criminal activity.</li>
+<li>Payment executor - executes a single payment order via the Payment Service Provider (PSP). Payment events may contain several payment orders.</li>
+<li>Payment service provider (PSP) - moves money from one account to another, eg from buyer's credit card account to e-commerce site's bank account.</li>
+<li>Card schemes - organizations that process credit card operations, eg Visa MasterCard, etc.</li>
+<li>Ledger - keeps financial record of all payment transactions.</li>
+<li>Wallet - keeps the account balance for all merchants.</li>
+</ul>
+<p>Here's an example pay-in flow:
+ * user clicks "place order" and a payment event is sent to the payment service
+ * payment service stores the event in its database
+ * payment service calls the payment executor for all payment orders, part of that payment event
+ * payment executor stores the payment order in its database
+ * payment executor calls external PSP to process the credit card payment
+ * After the payment executor processes the payment, the payment service updates the wallet to record how much money the seller has
+ * wallet service stores updated balance information in its database
+ * payment service calls the ledger to record all money movements</p>
+<h3 id="ch-26-apis-for-payment-service" class="section-heading"><strong>APIs for payment service</strong> <a href="#ch-26-apis-for-payment-service" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<div class="code-wrapper">
+  <div class="code-header">
+    <span class="code-badge">CODE</span>
+    <button class="copy-btn" onclick="copyCode(this)" title="Copy code to clipboard">
+      <svg class="copy-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      <span>Copy</span>
+    </button>
+  </div>
+  <pre><code>POST /v1/payments
+{
+  &quot;buyer_info&quot;: {...},
+  &quot;checkout_id&quot;: &quot;some_id&quot;,
+  &quot;credit_card_info&quot;: {...},
+  &quot;payment_orders&quot;: [{...}, {...}, {...}]
+}
+</code></pre>
+</div>
+<p>Example <code>payment_order</code>:</p>
+<div class="code-wrapper">
+  <div class="code-header">
+    <span class="code-badge">CODE</span>
+    <button class="copy-btn" onclick="copyCode(this)" title="Copy code to clipboard">
+      <svg class="copy-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      <span>Copy</span>
+    </button>
+  </div>
+  <pre><code>{
+  &quot;seller_account&quot;: &quot;SELLER_IBAN&quot;,
+  &quot;amount&quot;: &quot;3.15&quot;,
+  &quot;currency&quot;: &quot;USD&quot;,
+  &quot;payment_order_id&quot;: &quot;globally_unique_payment_id&quot;
+}
+</code></pre>
+</div>
+<p>Caveats:
+ * The <code>payment_order_id</code> is forwarded to the PSP to deduplicate payments, ie it is the idempotency key.
+ * The amount field is <code>string</code> as <code>double</code> is not appropriate for representing monetary values.</p>
+<div class="code-wrapper">
+  <div class="code-header">
+    <span class="code-badge">CODE</span>
+    <button class="copy-btn" onclick="copyCode(this)" title="Copy code to clipboard">
+      <svg class="copy-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      <span>Copy</span>
+    </button>
+  </div>
+  <pre><code>GET /v1/payments/{:id}
+</code></pre>
+</div>
+<p>This endpoint returns the execution status of a single payment, based on the <code>payment_order_id</code>.</p>
+<h3 id="ch-26-payment-service-data-model" class="section-heading"><strong>Payment service data model</strong> <a href="#ch-26-payment-service-data-model" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>We need to maintain two tables - <code>payment_events</code> and <code>payment_orders</code>.</p>
+<p>For payments, performance is typically not an important factor. Strong consistency, however, is.</p>
+<p>Other considerations for choosing the database:
+ * Strong market of DBAs to hire to administer the databaseS
+ * Proven track-record where the database has been used by other big financial institutions
+ * Richness of supporting tools
+ * Traditional SQL over NoSQL/NewSQL for its ACID guarantees</p>
+<p>Here's what the <code>payment_events</code> table contains:
+ * <code>checkout_id</code> - string, primary key
+ * <code>buyer_info</code> - string (personal note - prob a foreign key to another table is more appropriate)
+ * <code>seller_info</code> - string (personal note - same remark as above)
+ * <code>credit_card_info</code> - depends on card provider
+ * <code>is_payment_done</code> - boolean</p>
+<p>Here's what the <code>payment_orders</code> table contains:
+ * <code>payment_order_id</code> - string, primary key
+ * <code>buyer_account</code> - string
+ * <code>amount</code> - string
+ * <code>currency</code> - string
+ * <code>checkout_id</code> - string, foreign key
+ * <code>payment_order_status</code> - enum (<code>NOT_STARTED</code>, <code>EXECUTING</code>, <code>SUCCESS</code>, <code>FAILED</code>)
+ * <code>ledger_updated</code> - boolean
+ * <code>wallet_updated</code> - boolean</p>
+<p>Caveats:
+ * there are many payment orders, linked to a given payment event
+ * we don't need the <code>seller_info</code> for the pay-in flow. That's required on pay-out only
+ * <code>ledger_updated</code> and <code>wallet_updated</code> are updated when the respective service is called to record the result of a payment
+ * payment transitions are managed by a background job, which checks updates of in-flight payments and triggers an alert if a payment is not processed in a reasonable timeframe</p>
+<h3 id="ch-26-double-entry-ledger-system" class="section-heading"><strong>Double-entry ledger system</strong> <a href="#ch-26-double-entry-ledger-system" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>The double-entry accounting mechanism is key to any payment system. It is a mechanism of tracking money movements by always applying money operations to two accounts, where one's account balance increases (credit) and the other decreases (debit):</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>Account</th>
+<th>Debit</th>
+<th>Credit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>buyer</td>
+<td>$1</td>
+<td></td>
+</tr>
+<tr>
+<td>seller</td>
+<td></td>
+<td>$1</td>
+</tr>
+</tbody>
+</table></div>
+<p>Sum of all transaction entries is always zero. This mechanism provides end-to-end traceability of all money movements within the system.</p>
+<h3 id="ch-26-hosted-payment-page" class="section-heading"><strong>Hosted payment page</strong> <a href="#ch-26-hosted-payment-page" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>To avoid storing credit card information and having to comply with various heavy regulations, most companies prefer utilizing a widget, provided by PSPs, which store and handle credit card payments for you:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/hosted-payment-page.png" alt="hosted-payment-page" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<h3 id="ch-26-pay-out-flow" class="section-heading"><strong>Pay-out flow</strong> <a href="#ch-26-pay-out-flow" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>The components of the pay-out flow are very similar to the pay-in flow.</p>
+<p>Main differences:
+ * money is moved from e-commerce site's bank account to merchant's bank account
+ * we can utilize a third-party account payable provider such as Tipalti
+ * There's a lot of bookkeeping and regulatory requirements to handle with regards to pay-outs as well</p>
+<hr />
+<h2 id="ch-26-step-3-design-deep-dive" class="section-heading">Step 3: Design Deep Dive <a href="#ch-26-step-3-design-deep-dive" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>This section focuses on making the system faster, more robust and secure.</p>
+<h3 id="ch-26-psp-integration" class="section-heading"><strong>PSP Integration</strong> <a href="#ch-26-psp-integration" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>If our system can directly connect to banks or card schemes, payment can be made without a PSP.
+These kinds of connections are very rare and uncommon, typically done at large companies which can justify the investment.</p>
+<p>If we go down the traditional route, a PSP can be integrated in one of two ways:
+ * Through API, if our payment system can collect payment information
+ * Through a hosted payment page to avoid dealing with payment information regulations</p>
+<p>Here's how the hosted payment page workflow works:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/hosted-payment-page-workflow.png" alt="hosted-payment-page-workflow" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<ul>
+<li>User clicks "checkout" button in the browser</li>
+<li>Client calls the payment service with the payment order information</li>
+<li>After receiving payment order information, the payment service sends a payment registration request to the PSP.</li>
+<li>The PSP receives payment info such as currency, amount, expiration, etc, as well as a UUID for idempotency purposes. Typically the UUID of the payment order.</li>
+<li>The PSP returns a token back which uniquely identifies the payment registration. The token is stored in the payment service database.</li>
+<li>Once token is stored, the user is served with a PSP-hosted payment page. It is initialized using the token as well as a redirect URL for success/failure. </li>
+<li>User fills in payment details on the PSP page, PSP processes payment and returns the payment status</li>
+<li>User is now redirected back to the redirectURL. Example redirect url - <code>https://your-company.com/?tokenID=JIOUIQ123NSF&amp;payResult=X324FSa</code></li>
+<li>Asynchronously, the PSP calls our payment service via a webhook to inform our backend of the payment result</li>
+<li>Payment service records the payment result based on the webhook received</li>
+</ul>
+<h3 id="ch-26-reconciliation" class="section-heading"><strong>Reconciliation</strong> <a href="#ch-26-reconciliation" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>The previous section explains the happy path of a payment. Unhappy paths are detected and reconciled using a background reconciliation process.</p>
+<p>Every night, the PSP sends a settlement file which our system uses to compare the external system's state against our internal system's state.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/settlement-report.png" alt="settlement-report" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>This process can also be used to detect internal inconsistencies between eg the ledger and the wallet services.</p>
+<p>Mismatches are handled manually by the finance team. Mismatches are handled as:
+ * classifiable, hence, it is a known mismatch which can be adjusted using a standard procedure
+ * classifiable, but can't be automated. Manually adjusted by the finance team
+ * unclassifiable. Manually investigated and adjusted by the finance team</p>
+<h3 id="ch-26-handling-payment-processing-delays" class="section-heading"><strong>Handling payment processing delays</strong> <a href="#ch-26-handling-payment-processing-delays" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>There are cases, where a payment can take hours to complete, although it typically takes seconds.</p>
+<p>This can happen due to:
+ * a payment being flagged as high-risk and someone has to manually review it
+ * credit card requires extra protection, eg 3D Secure Authentication, which requires extra details from card holder to complete</p>
+<p>These situations are handled by:
+ * waiting for the PSP to send us a webhook when a payment is complete or polling its API if the PSP doesn't provide webhooks
+ * showing a "pending" status to the user and giving them a page, where they can check-in for payment updates. We could also send them an email once their payment is complete</p>
+<h3 id="ch-26-communication-among-internal-services" class="section-heading"><strong>Communication among internal services</strong> <a href="#ch-26-communication-among-internal-services" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>There are two types of communication patterns services use to communicate with one another - synchronous and asynchronous.</p>
+<p>Synchronous communication (ie HTTP) works well for small-scale systems, but suffers as scale increases:
+ * low performance - request-response cycle is long as more services get involved in the call chain
+ * poor failure isolation - if PSPs or any other service fails, user will not receive a response
+ * tight coupling - sender needs to know the receiver
+ * hard to scale - not easy to support sudden increase in traffic due to not having a buffer</p>
+<p>Asynchronous communication can be divided into two categories.</p>
+<p>Single receiver - multiple receivers subscribe to the same topic and messages are processed only once:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/single-receiver.png" alt="single-receiver" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Multiple receivers - multiple receivers subscribe to the same topic, but messages are forwarded to all of them:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/multiple-receiver.png" alt="multiple-receiver" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Latter model works well for our payment system as a payment can trigger multiple side effects, handled by different services.</p>
+<p>In a nutshell, synchronous communication is simpler but doesn't allow services to be autonomous. 
+Async communication trades simplicity and consistency for scalability and resilience.</p>
+<h3 id="ch-26-handling-failed-payments" class="section-heading"><strong>Handling failed payments</strong> <a href="#ch-26-handling-failed-payments" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Every payment system needs to address failed payments. Here are some of the mechanism we'll use to achieve that:
+ * Tracking payment state - whenever a payment fails, we can determine whether to retry/refund based on the payment state.
+ * Retry queue - payments which we'll retry are published to a retry queue
+ * Dead-letter queue - payments which have terminally failed are pushed to a dead-letter queue, where the failed payment can be debugged and inspected.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/failed-payments.png" alt="failed-payments" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<h3 id="ch-26-exactly-once-delivery" class="section-heading"><strong>Exactly-once delivery</strong> <a href="#ch-26-exactly-once-delivery" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>We need to ensure a payment gets processed exactly-once to avoid double-charging a customer.</p>
+<p>An operation is executed exactly-once if it is executed at-least-once and at-most-once at the same time.</p>
+<p>To achieve the at-least-once guarantee, we'll use a retry mechanism:</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/retry-mechanism.png" alt="retry-mechanism" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Here are some common strategies on deciding the retry intervals:
+ * immediate retry - client immediately sends another request after failure
+ * fixed intervals - wait a fixed amount of time before retrying a payment
+ * incremental intervals - incrementally increase retry interval between each retry
+ * exponential back-off - double retry interval between subsequent retries
+ * cancel - client cancels the request. This happens when the error is terminal or retry threshold is reached</p>
+<p>As a rule of thumb, default to an exponential back-off retry strategy. A good practice is for the server to specify a retry interval using a <code>Retry-After</code> header.</p>
+<p>An issue with retries is that the server can potentially process a payment twice:
+ * client clicks the "pay button" twice, hence, they are charged twice
+ * payment is successfully processed by PSP, but not by downstream services (ledger, wallet). Retry causes the payment to be processed by the PSP again</p>
+<p>To address the double payment problem, we need to use an idempotency mechanism - a property that an operation applied multiple times is processed only once.</p>
+<p>From an API perspective, clients can make multiple calls which produce the same result. 
+Idempotency is managed by a special header in the request (eg <code>idempotency-key</code>), which is typically a UUID.</p>
+<div style="margin-left:3rem">
+    <div class="diagram-wrapper"><img class="diagram-img" onclick="openLightbox(this)" title="Click to view full-resolution diagram" loading="lazy" src="./images/idempotency-example.png" alt="idempotency-example" width="500" /><div class="diagram-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg> Click diagram to enlarge / zoom</div></div>
+</div>
+
+<p>Idempotency can be achieved using the database's mechanism of adding unique key constraints:
+ * server attempts to insert a new row in the database
+ * the insertion fails due to a unique key constraint violation
+ * server detects that error and instead returns the existing object back to the client</p>
+<p>Idempotency is also applied at the PSP side, using the nonce, which was previously discussed. PSPs will take care to not process payments with the same nonce twice.</p>
+<h3 id="ch-26-consistency" class="section-heading"><strong>Consistency</strong> <a href="#ch-26-consistency" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>There are several stateful services called throughout a payment's lifecycle - PSP, ledger, wallet, payment service.</p>
+<p>Communication between any two services can fail. 
+We can ensure eventual data consistency between all services by implementing exactly-once processing and reconciliation.</p>
+<p>If we use replication, we'll have to deal with replication lag, which can lead to users observing inconsistent data between primary and replica databases.</p>
+<p>To mitigate that, we can serve all reads and writes from the primary database and only utilize replicas for redundancy and fail-over.
+Alternatively, we can ensure replicas are always in-sync by utilizing a consensus algorithm such as Paxos or Raft.
+We could also use a consensus-based distributed database such as YugabyteDB or CockroachDB.</p>
+<h3 id="ch-26-payment-security" class="section-heading"><strong>Payment security</strong> <a href="#ch-26-payment-security" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h3>
+<p>Here are some mechanisms we can use to ensure payment security:
+ * Request/response eavesdropping - we can use HTTPS to secure all communication
+ * Data tampering - enforce encryption and integrity monitoring
+ * Man-in-the-middle attacks - use SSL \w certificate pinning
+ * Data loss - replicate data across multiple regions and take data snapshots
+ * DDoS attack - implement rate limiting and firewall
+ * Card theft - use tokens instead of storing real card information in our system
+ * PCI compliance - a security standard for organizations which handle branded credit cards
+ * Fraud - address verification, card verification value (CVV), user behavior analysis, etc</p>
+<hr />
+<h2 id="ch-26-step-4-wrap-up" class="section-heading">Step 4: Wrap Up <a href="#ch-26-step-4-wrap-up" class="heading-anchor" title="Direct link to this section" aria-label="Direct link to this section">#</a></h2>
+<p>Other talking points:
+ * Monitoring and alerting
+ * Debugging tools - we need tools which make it easy to understand why a payment has failed
+ * Currency exchange - important when designing a payment system for international use
+ * Geography - different regions might have different payment methods
+ * Cash payment - very common in places like India and Brazil
+ * Google/Apple Pay integration</p>
+    </div>
+    
+    <div style="margin-top:3rem;text-align:center;">
+      <a href="../index.html#ch-26" class="back-btn" style="padding:0.75rem 1.5rem;font-size:1rem;">&larr; Return to All System Design Chapters</a>
+    </div>
+  </div>
+
+  <!-- Image Diagram Lightbox Modal -->
+  <div class="lightbox-overlay" id="lightbox-modal" onclick="if(event.target===this) closeLightbox()">
+    <div class="lightbox-caption" id="lightbox-caption">Architecture Diagram</div>
+    <div class="lightbox-img-stage" id="lightbox-stage">
+      <img id="lightbox-active-img" class="lightbox-img" src="" alt="Enlarged Diagram">
+    </div>
+    <div class="lightbox-toolbar">
+      <button class="lightbox-btn" onclick="zoomLightbox(0.25)">Zoom In (+)</button>
+      <button class="lightbox-btn" onclick="zoomLightbox(-0.25)">Zoom Out (-)</button>
+      <button class="lightbox-btn" onclick="resetLightbox()">Reset (1:1)</button>
+      <button class="lightbox-btn" onclick="closeLightbox()">Close (Esc)</button>
+    </div>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    }
+    function copyCode(btn) {
+      const wrapper = btn.closest('.code-wrapper');
+      const codeEl = wrapper.querySelector('pre code');
+      if (codeEl) {
+        navigator.clipboard.writeText(codeEl.innerText);
+        const span = btn.querySelector('span');
+        const orig = span.textContent;
+        span.textContent = 'Copied!';
+        setTimeout(() => span.textContent = orig, 1800);
+      }
+    }
+    let lightboxScale = 1;
+    function openLightbox(img) {
+      document.getElementById('lightbox-active-img').src = img.src;
+      document.getElementById('lightbox-modal').classList.add('open');
+      lightboxScale = 1;
+      updateTransform();
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox-modal').classList.remove('open');
+    }
+    function zoomLightbox(delta) {
+      lightboxScale = Math.max(0.5, Math.min(5, lightboxScale + delta));
+      updateTransform();
+    }
+    function resetLightbox() {
+      lightboxScale = 1;
+      updateTransform();
+    }
+    function updateTransform() {
+      document.getElementById('lightbox-active-img').style.transform = `scale(${lightboxScale})`;
+    }
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeLightbox();
+    });
+  </script>
+</body>
+</html>
