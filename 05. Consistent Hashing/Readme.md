@@ -1,5 +1,19 @@
 # Chapter 5: Design Consistent Hashing
 
+---
+
+# Table of Contents
+
+- [Introduction](#introduction)
+- [The Rehashing Problem](#the-rehashing-problem)
+- [Consistent Hashing](#consistent-hashing)
+- [Challenges and Solutions](#challenges-and-solutions)
+- [Affected Keys](#affected-keys)
+- [Benefits of Consistent Hashing](#benefits-of-consistent-hashing)
+- [Real-World Applications](#real-world-applications)
+
+---
+
 ## Introduction
 This chapter explores consistent hashing, a technique essential for achieving horizontal scaling by efficiently distributing requests and data across servers. It minimizes data redistribution when servers are added or removed and ensures an even distribution of data to mitigate issues like server hotspots.
 

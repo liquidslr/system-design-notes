@@ -1,5 +1,22 @@
 # Chapter 16: Proximity Service
 
+---
+
+# Table of Contents
+
+- [Introduction](#introduction)
+- [Step 1: Understanding the Problem and Establishing Scope](#step-1-understanding-the-problem-and-establishing-scope)
+- [Step 2: High-Level Design](#step-2-high-level-design)
+- [Step 3: Algorithms for Fetching Nearby Businesses](#step-3-algorithms-for-fetching-nearby-businesses)
+- [Tradeoff Comparison](#tradeoff-comparison)
+- [Step 4: Scaling the Database and Caching Strategy](#step-4-scaling-the-database-and-caching-strategy)
+- [Step 5: Deployment Strategy and Final Architecture](#step-5-deployment-strategy-and-final-architecture)
+- [Steps to Retrieve Nearby Businesses](#steps-to-retrieve-nearby-businesses)
+- [Key Optimizations](#key-optimizations)
+- [References](#references)
+
+---
+
 ## Introduction
 A **proximity service** is designed to find nearby locations, such as restaurants, hotels, gas stations, and other businesses. This functionality is used in applications like **Google Maps** and **Yelp** to help users discover places within a defined radius.
 

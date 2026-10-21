@@ -1,5 +1,18 @@
 # Chapter 6: Design a Key-Value Store
 
+---
+
+# Table of Contents
+
+- [Introduction](#introduction)
+- [Single Server Key-Value Store](#single-server-key-value-store)
+- [Distributed Key-Value Store](#distributed-key-value-store)
+- [System Components](#system-components)
+- [Write and Read Paths](#write-and-read-paths)
+- [Final Architecture](#final-architecture)
+
+---
+
 ## Introduction
 A **key-value store** is a type of non-relational database where data is stored as key-value pairs. Each key is unique, and values are accessed using these keys. This chapter details how to design a scalable, high-availability distributed key-value store that supports operations like:
 - `put(key, value)` for inserting data.
