@@ -21,6 +21,13 @@ Initially, all components (web app, database, cache) run on a single server.
 1. **Web Applications:** Use server-side languages (e.g., Python, Java) for business logic and client-side languages (e.g., JavaScript, HTML) for presentation.
 2. **Mobile Applications:** Communicate with the web server using HTTP and JSON for lightweight data exchange.
 
+
+
+
+
+
+
+
 ---
 
 ## Section 2: Database Separation
