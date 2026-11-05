@@ -1,5 +1,18 @@
 # Chapter 6: Design a Key-Value Store
 
+---
+
+# Table of Contents
+
+- [Introduction](#introduction)
+- [Single Server Key-Value Store](#single-server-key-value-store)
+- [Distributed Key-Value Store](#distributed-key-value-store)
+- [System Components](#system-components)
+- [Write and Read Paths](#write-and-read-paths)
+- [Final Architecture](#final-architecture)
+
+---
+
 ## Introduction
 A **key-value store** is a type of non-relational database where data is stored as key-value pairs. Each key is unique, and values are accessed using these keys. This chapter details how to design a scalable, high-availability distributed key-value store that supports operations like:
 - `put(key, value)` for inserting data.
@@ -8,8 +21,10 @@ A **key-value store** is a type of non-relational database where data is stored 
 ### Characteristics of the Design
 - Small key-value pairs (<10 KB).
 - Supports big data with high availability and scalability.
-- Automatic scaling and tunable consistency.
+- Automatic scaling and tunable consistency. 
 - Low latency.
+
+NOTE: Tunable consistency means, user can define how many replica  servers should confirm the write operation, before the write operation is finally considered successful.
 
 ---
 
@@ -58,6 +73,8 @@ A **distributed key-value store** partitions data across multiple servers and mu
 For writes, n1 and n2 keep accepting writes,
 and data will be synced to n3 when the network partition is resolved.
 
+E.g. when consistency is more imp: Banking Systems; when availability is more imp: Instagram.
+
 ---
 
 ## System Components
@@ -96,7 +113,9 @@ Since data is replicated at multiple nodes, it must be synchronized across repli
 - **Models**:
   - **Strong Consistency:** A read operation returns a value corresponding to the result of the most updated write data item.
   - **Weak Consistency:** Subsequent read operations may not see the most updated value.
-  - **Eventual Consistency:** Given enough time, all updates are propagated, and all replicas are consisten
+  - **Eventual Consistency:** Given enough time, all updates are propagated, and all replicas are consistent
+
+NOTE: This concept in which we can tune W and R, is known as tunable consistency.
 
 
 ### 4. Inconsistency Resolution
@@ -134,15 +153,19 @@ vector locks are used to solve inconsistency problems.
         <img src="./images/vector-clock.png"  alt="Server hashing" width="500">
         </p>
 
+        So one vector clock is not useful enough. And on the basis of two vector clocks from two replicas for the same data element. We can just tell if one precedes the other or not. If it doesn't then there's a concurrent write, and if that write doesn't match, then there is inconsistency which needs to be reconciled according to application specific rules.
+
+        Given two vector clocks, we can tell one version precedes the other (ideal case), if all versions of one vector clock are less than or equal to other vector clock versions and not all versions are equal. Else there's a concurrent write.
+ 
 - **Challenges:**
-  - Increased complexity for clients.
-  - Vector clock size may grow with many updates, requiring trimming strategies to limit its size.
+  - Increased complexity for clients as they have to define reconcilation rules.
+  - Vector clock size may grow with many updates, requiring trimming strategies to limit its size. but this hasn't occured with amazon till now in prod.
 
 
 ### 5. Handling Failures
 
-#### a. Failure Detection
-It is insufficient to believe that a server is down because another server says so.Usually, it requires at least two independent sources of information to mark a server down.
+#### Failure Detection
+It is insufficient to believe that a server is down because another server says so. Usually, it requires at least two independent sources of information to mark a server down.
 - **Gossip Protocol:**
     <div style="margin-left:3rem">
         <img src="./images/gossip-protocol.png"  alt="Gossip protocol" width="600">
@@ -150,28 +173,22 @@ It is insufficient to believe that a server is down because another server says 
 
     - Each node maintains member IDs and heartbeat counters.
     - Each node periodically increments its heartbeat counter.
-    - Each node periodically sends heartbeats to a set of random nodes.
+    - Each node periodically sends heartbeats to other nodes.
     - If the heartbeat has not increased for more than predefined periods, the member is
     considered as offline
 
 
 
-#### b. Temporary Failures
-- **Sloppy Quorum:** Use healthy nodes to maintain operations temporarily.
-        <p align="center">
-        <img src="./images/sloppy-quorum.png"   alt="Sloppy Quorum" width="400">
-        </p>
+#### a. Temporary Failures
+- **Strict Quorum:** Blocks all reads/writes.
 
-    - After detecting failures, the system needs to deploy certain mechanisms to ensure availability
-    - Instead of enforcing the quorum requirement, the system chooses the first W healthy servers for writes and first R
-    healthy servers for reads on the hash ring. 
-    - Offline servers are ignored. If a server is unavailable, another server will process requests temporarily
-
+- **Sloppy Quorum:** The system chooses the first W healthy servers for writes and first R healthy servers for reads on the hash ring. 
 
 - **Hinted Handoff:** Offline servers catch up with changes upon recovery.
-    - When the down server is up, changes will be pushed back to achieve data consistency
 
-#### c. Permanent Failures
+#### b. Permanent Failures
+- **Anti-Entropy Protocol**: Compare each piece of data on replicas and updating them
+
 - Use **Merkle Trees** for efficient synchronization between replicas.
     A **Merkle Tree** (or hash tree) is a data structure to efficiently detect and resolve inconsistencies between replicas during permanent failures. 
 
@@ -227,7 +244,7 @@ It is insufficient to believe that a server is down because another server says 
 
 - Persist the write in a **commit log**.
 - Save data to a **memory cache**.
-- Flush data to **SSTable** (Sorted String Table) on disk when cache is full.
+- Flush data to **SSTable** (Sorted String Table) on disk when cache threshold is reached.
 
    
 

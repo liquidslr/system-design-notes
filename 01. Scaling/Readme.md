@@ -1,5 +1,26 @@
 # Chapter 1: Scale from Zero to Millions of Users
 
+---
+
+# Table of Contents
+
+- [Introduction](#introduction)
+- [Single Server Setup](#section-1-single-server-setup)
+- [Database Separation](#section-2-database-separation)
+- [Vertical vs Horizontal Scaling](#section-3-vertical-vs-horizontal-scaling)
+- [Load Balancer](#section-4-load-balancer)
+- [Database Replication](#section-5-database-replication)
+- [Caching](#section-6-caching)
+- [Content Delivery Network (CDN)](#section-7-content-delivery-network-cdn)
+- [Stateless Web Tier](#section-8-stateless-web-tier)
+- [Multi-Data Center Setup](#section-9-multi-data-center-setup)
+- [Message Queue](#section-10-message-queue)
+- [Logging, Metrics, and Automation](#section-11-logging-metrics-and-automation)
+- [Database Scaling](#section-12-database-scaling)
+- [Conclusion](#conclusion)
+
+---
+
 ## Introduction
 Scaling a system to support millions of users is a complex, iterative journey requiring refinement and optimization. This chapter outlines how to begin with a single server setup and scale the architecture step by step to handle millions of users.
 
@@ -190,7 +211,10 @@ communication. It serves as a buffer and distributes asynchronous requests.
 
 ### Importance
 1. **Logging:** Tracks errors and system health.
-2. **Metrics:** Provides insights into performance and user activity.
+2. **Metrics:** Provides insights into system performance, resource utilization, and user activity.
+   - **Host-level metrics:** CPU utilization, memory usage, disk space, network traffic, etc. Tools: Grafana (for visualization), Prometheus (for metrics collection).
+   - **Aggregated/system-level metrics:** Database query performance, cache hit ratio, API latency, request throughput, error rates, etc.
+   - **Key business metrics:** Daily Active Users (DAU), Monthly Active Users (MAU), revenue, conversion rate, customer retention, etc.
 3. **Automation:** Streamlines testing, deployment, and scaling.
 
 ---
@@ -224,6 +248,7 @@ communication. It serves as a buffer and distributes asynchronous requests.
 
 3. **Join and de-normalization:** Once a database has been sharded across multiple servers, it is hard to perform join operations across database shards.
    -  A common workaround is to de-normalize the database so that queries can be performed in a single table.
+   -  Benefits of De-normalization includes improved query performance, simplified query, reduced joins, and optimality for read-intensive scenarios.
 
 ---
 

@@ -18,10 +18,10 @@ This chapter explores the design and implementation of a rate limiter—a system
 
 ### Requirements
 - Accurate request throttling.
-- Minimal latency.
+- Minimal latency - should not slow down HTTP response time
 - Low memory usage.
-- Distributed capability.
-- Clear exception handling.
+- Distributed capability - shared across multiple servers.
+- Exception handling.
 - High fault tolerance.
 
 ## Step 2: High-Level Design
@@ -60,11 +60,12 @@ This chapter explores the design and implementation of a rate limiter—a system
 </div>
 
 - **Description:** Processes requests at a fixed rate using a FIFO queue.
+- **Parameters:** Queue (Bucket) size and outflow rate.
 - **Pros:** Memory-efficient, stable outflow rate.
-- **Cons:** Traffic bursts may delay recent requests.
+- **Cons:** Also requires carefult parameter tuning.
   
 
-  Example: https://github.com/uber-go/ratelimit
+  Example: Shopify, https://github.com/uber-go/ratelimit
 
 
 
@@ -90,7 +91,7 @@ could cause more requests than allowed quota to go through.
 
 - **Description:** Tracks timestamps to allow a rolling time window.
 - **Pros:** Accurate rate limiting.
-- **Cons:** High memory consumption.
+- **Cons:** High memory consumption (to store logs), More processing per request .
   
 
 
@@ -99,9 +100,11 @@ could cause more requests than allowed quota to go through.
   <img src="./images/sliding-window-counter.png"  alt="Fixed Window Counter" width="550">
 </div>
 
-- **Description:** Combines fixed window and sliding log methods for smoothing spikes.
+- **Description:** Combines fixed window and sliding log methods for smoothing spikes. Estimates the sliding window request count, using weighted average. 
+$$\text{Estimated Count} = \text{Current Window Count} + \left( \text{Previous Window Count} \times \frac{\text{Remaining Time in Previous Window}}{\text{Total Window Size}} \right)$$
+
 - **Pros:** Memory-efficient, handles traffic bursts.
-- **Cons:** Approximation may not be perfectly strict.
+- **Cons:** Approximation may not be perfectly strict. A research shows 6% error rate.
   
 
 
@@ -117,6 +120,15 @@ could cause more requests than allowed quota to go through.
   2. Middleware checks counters in Redis.
   3. Request is processed or rejected based on limits.
 
+NOTE: Redis provides these two operations for counters: INCR and EXPIRE
+
+- Where to store the rules? - In configuration files in disk.
+- What happens when number of requests exceeds the limit? - Send 429 Too Many Requests to client and either drop or enqueue the request to process later.
+- How will the client know about remaining quota?
+<div style="margin-left:0rem">
+  <img src="./images/remaining_requests.png" style="margin-left: 40px; margin-top: 40px; margin-bottom: 20px;" width="750">
+</div>
+
 
 ## Advanced Considerations
 ### Distributed Environments
@@ -130,3 +142,5 @@ could cause more requests than allowed quota to go through.
 ### Monitoring
 - Regular analytics to ensure algorithm effectiveness and adjust rules as needed.
 
+
+Note: There's also something known as soft rate limiting in which we allow request count to be > threshold for a short period of time. 
