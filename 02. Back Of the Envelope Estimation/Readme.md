@@ -21,20 +21,13 @@ This knowledge helps in performing accurate storage and bandwidth calculations.
 ### Latency Numbers Every Programmer Should Know
 Latency numbers represent the time taken for various operations in computing systems. These provide insights into relative performance:
 
-| Operation                | Latency (2020) |
-|--------------------------|----------------|
-| L1 Cache Access          | 0.5 ns         |
-| L2 Cache Access          | 7 ns           |
-| Main Memory Access       | 100 ns         |
-| SSD Random Read          | 150 µs         |
-| HDD Random Seek          | 10 ms          |
-| Round-Trip in Data Center| 500 µs         |
-| Inter-Region Data Center | 150 ms         |
+<img src="./images/latency.png" alt="latency" width="500" />
 
 **Key Insights:**
 - Memory is fast, disk is slow.
 - Avoid disk seeks whenever possible.
 - Compress data before transmitting over the internet to save bandwidth.
+- Data centers are far located. Time taking. 
 
 
 ---

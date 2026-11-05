@@ -248,6 +248,7 @@ communication. It serves as a buffer and distributes asynchronous requests.
 
 3. **Join and de-normalization:** Once a database has been sharded across multiple servers, it is hard to perform join operations across database shards.
    -  A common workaround is to de-normalize the database so that queries can be performed in a single table.
+   -  Benefits of De-normalization includes improved query performance, simplified query, reduced joins, and optimality for read-intensive scenarios.
 
 ---
 
