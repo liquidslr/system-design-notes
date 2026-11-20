@@ -18,8 +18,8 @@ Initially, all components (web app, database, cache) run on a single server.
 3. HTTP requests are sent to the web server, which returns HTML or JSON responses.
 
 ### Traffic Sources
-1. **Web Applications:** Use server-side languages (e.g., Python, Java) for business logic and client-side languages (e.g., JavaScript, HTML) for presentation.
-2. **Mobile Applications:** Communicate with the web server using HTTP and JSON for lightweight data exchange.
+1. **Web Applications:** Run in a web browser and typically use client-side technologies such as HTML, CSS, and JavaScript for the user interface, while server-side technologies such as Python or Java handle business logic and database operations. The web application communicates with the server using HTTP/HTTPS, commonly exchanging data in JSON format.
+2. **Mobile Applications:** Run as applications on a mobile operating system such as iOS or Android. They are typically built using technologies such as Swift, Kotlin, or cross-platform frameworks. The mobile application communicates with the server using HTTP/HTTPS, commonly exchanging data in JSON format.
 
 ---
 
